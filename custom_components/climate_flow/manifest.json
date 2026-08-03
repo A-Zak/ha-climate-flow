@@ -1,0 +1,13 @@
+{
+  "domain": "climate_flow",
+  "name": "Climate Flow",
+  "codeowners": ["@A-Zak"],
+  "config_flow": true,
+  "documentation": "https://github.com/A-Zak/ha-climate-flow",
+  "integration_type": "helper",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/A-Zak/ha-climate-flow/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "0.1.0"
+}

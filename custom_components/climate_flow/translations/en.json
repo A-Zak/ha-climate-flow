@@ -1,0 +1,11 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Set up the Climate Flow integration scaffold. Flow execution and climate control are not available yet.",
+        "title": "Climate Flow"
+      }
+    }
+  },
+  "title": "Climate Flow"
+}

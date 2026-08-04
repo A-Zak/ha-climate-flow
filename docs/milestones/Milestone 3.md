@@ -12,7 +12,7 @@ native Home Assistant controls for starting, cancelling, and observing a run.
   runtime data
 - One switch entity for each saved flow subentry
 - `climate_flow.start` and `climate_flow.cancel` actions
-- Duration scheduling for Stage 1 and optional duration scheduling for Stage 2
+- Duration scheduling for Stage 1 and immediate completion after Stage 2
 - Applying all climate controls introduced in Milestone 2
 - Concurrent execution of flows with disjoint target sets
 - Target ownership and overlap protection
@@ -49,8 +49,7 @@ When a flow starts:
 4. Apply Stage 1 to each target.
 5. Wait for the Stage 1 duration.
 6. Apply Stage 2 to each remaining target.
-7. If Stage 2 has a duration, wait for it.
-8. Complete the run and release all remaining targets.
+7. Complete the run and release all remaining targets.
 
 Climate state application supports HVAC mode, target temperature, fan mode,
 swing mode, and preset mode. Values are validated against current target
@@ -109,7 +108,7 @@ logging unrelated entity state or sensitive configuration.
 
 - Create stable switch entities from saved flow subentries.
 - Start and cancel flows through both switch and Climate Flow actions.
-- Apply both stages in order with and without a Stage 2 duration.
+- Apply both stages in order and complete immediately after Stage 2.
 - Verify all supported climate controls and unit conversion.
 - Complete immediately after applying an undelayed Stage 2.
 - Run disjoint flows concurrently.

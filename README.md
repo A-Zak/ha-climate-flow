@@ -3,16 +3,15 @@
 Climate Flow is a Home Assistant custom integration intended to run ordered
 climate-control flows.
 
-Milestone 2 adds saved flow configuration. Flows are created as native child
-entries of Climate Flow and contain exactly two ordered climate stages. They
-can select multiple climate targets and configure HVAC mode plus supported
-temperature, fan, swing, and preset controls. Climate control, flow execution,
-actions, entities, scheduling, completion conditions, persistence, and
-dashboard UI are not implemented yet.
+Milestone 3 runs saved two-stage flows. Each saved flow is a native child entry
+of Climate Flow and has a switch entity. Starting it applies Stage 1 for its
+configured duration, applies Stage 2, then completes. Flows can select multiple
+climate targets and configure HVAC mode plus supported temperature, fan, swing,
+and preset controls.
 
 ## Installation
 
-Climate Flow Milestone 2 requires Home Assistant 2025.3 or newer because it
+Climate Flow Milestone 3 requires Home Assistant 2025.3 or newer because it
 uses native config subentries for saved flows.
 
 The repository is structured as a HACS custom integration. Until it is
@@ -24,8 +23,14 @@ then install Climate Flow and restart Home Assistant.
 In Home Assistant, open **Settings > Devices & services**, select
 **Add integration**, and choose **Climate Flow**. Only one Climate Flow config
 entry is supported. After creating it, add a saved flow from the Climate Flow
-integration page. A flow name produces an editable lowercase kebab-case flow
-ID, while Home Assistant keeps a separate stable internal identity.
+integration page. A flow name produces an internal lowercase kebab-case ID,
+while Home Assistant keeps a separate stable config-subentry identity.
+
+Each saved flow has one switch. Turn it on to execute the flow and off to
+cancel it without restoring climate state. Automations may use
+`climate_flow.start` and `climate_flow.cancel`, targeting one or more Climate
+Flow switch entities. Flows with disjoint climate targets may run together;
+overlapping flows are rejected.
 
 ## Development
 
@@ -56,8 +61,10 @@ requirements and start the fixture:
 
 On first use, create a throwaway local account at
 `http://127.0.0.1:8124`. The fixture provides `climate.test_climate`, a local
-generic thermostat backed by helper entities. Use it to create, edit, and
-remove Climate Flow definitions without controlling a real device.
+generic thermostats backed by helper entities: `climate.test_climate`,
+`climate.test_climate_office`, and `climate.test_climate_lounge`. Use them to
+create, execute, edit, and remove Climate Flow definitions without controlling
+a real device.
 
 Home Assistant writes its database, auth data, logs, and other runtime state
 under `.manual-ha`; those files are intentionally ignored. To restart manual

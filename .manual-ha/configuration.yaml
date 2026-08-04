@@ -3,10 +3,26 @@ frontend:
 input_boolean:
   test_heater:
     name: Test heater
+  test_heater_office:
+    name: Test office heater
+  test_heater_lounge:
+    name: Test lounge heater
 
 input_number:
   test_temperature:
     name: Test temperature
+    min: 10
+    max: 40
+    step: 0.5
+    initial: 22
+  test_temperature_office:
+    name: Test office temperature
+    min: 10
+    max: 40
+    step: 0.5
+    initial: 22
+  test_temperature_lounge:
+    name: Test lounge temperature
     min: 10
     max: 40
     step: 0.5
@@ -17,6 +33,22 @@ climate:
     name: Test Climate
     heater: input_boolean.test_heater
     target_sensor: input_number.test_temperature
+    ac_mode: true
+    initial_hvac_mode: cool
+    min_temp: 16
+    max_temp: 30
+  - platform: generic_thermostat
+    name: Test Climate Office
+    heater: input_boolean.test_heater_office
+    target_sensor: input_number.test_temperature_office
+    ac_mode: true
+    initial_hvac_mode: cool
+    min_temp: 16
+    max_temp: 30
+  - platform: generic_thermostat
+    name: Test Climate Lounge
+    heater: input_boolean.test_heater_lounge
+    target_sensor: input_number.test_temperature_lounge
     ac_mode: true
     initial_hvac_mode: cool
     min_temp: 16

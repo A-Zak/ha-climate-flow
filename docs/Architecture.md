@@ -47,10 +47,11 @@ Example:
 2. Cool at 26°C until 07:00.
 3. Turn the climate device off.
 
-Milestone 2 stores saved flow definitions as Home Assistant config subentries.
-Each definition has a user-facing name, editable logical flow ID, and stable
-internal config subentry ID. It currently contains exactly two stages and is
-configuration only; execution and action schemas remain future work.
+Milestone 3 stores saved flow definitions as Home Assistant config subentries
+and executes them through one switch per definition. Each definition has a
+user-facing name, an internal logical flow ID, and a stable config subentry ID.
+It contains exactly two stages: Stage 1 has a required duration and Stage 2
+applies immediately before completion.
 
 ## Architectural layers
 
@@ -114,10 +115,10 @@ Possible properties may include:
 - Target climate entities.
 - Replacement or cancellation behavior.
 
-In Milestone 2, a flow definition targets one or more climate entities and
-contains exactly two ordered stages. The logical flow ID is lowercase kebab
-case and may be edited without changing the config subentry ID used for future
-runtime identity.
+In Milestone 3, a flow definition targets one or more climate entities and
+contains exactly two ordered stages. The internal logical flow ID is generated
+as lowercase kebab case. The config subentry ID is the stable runtime and
+switch identity.
 
 ### Stage
 

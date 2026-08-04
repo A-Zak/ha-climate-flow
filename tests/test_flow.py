@@ -195,6 +195,7 @@ async def test_create_saved_two_stage_flow(hass: HomeAssistant) -> None:
         {CONF_NAME: "Bedroom Night Cooling", CONF_TARGETS: ["climate.bedroom"]},
     )
     assert result["step_id"] == "details"
+    assert result["description_placeholders"] == {"temperature_range": "16 - 30 °C"}
     sections = {
         field.schema: value
         for field, value in result["data_schema"].schema.items()

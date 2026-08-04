@@ -15,6 +15,7 @@ from homeassistant.components.climate.const import (
 )
 from homeassistant.const import ATTR_ENTITY_ID, ATTR_TEMPERATURE, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
+from homeassistant.util.unit_system import US_CUSTOMARY_SYSTEM
 from pytest_homeassistant_custom_component.common import async_mock_service
 
 from custom_components.climate_flow.flow import ClimateState, FlowStage, SavedFlow
@@ -138,3 +139,36 @@ async def test_runtime_applies_stage_two_and_completes_immediately(
 
     assert [call.data["hvac_mode"] for call in hvac_calls] == ["cool", "off"]
     assert not runtime.is_active("flow")
+
+
+async def test_runtime_converts_saved_celsius_temperature_to_home_assistant_unit(
+    hass: HomeAssistant,
+) -> None:
+    """Test climate services receive the installation's Fahrenheit temperature."""
+    hass.config.units = US_CUSTOMARY_SYSTEM
+    hass.states.async_set(
+        "climate.bedroom",
+        "cool",
+        {
+            ATTR_HVAC_MODES: ["off", "cool"],
+            ATTR_FAN_MODES: ["auto", "high"],
+            ATTR_SWING_MODES: ["off", "vertical"],
+            ATTR_PRESET_MODES: ["none", "eco"],
+            ATTR_MIN_TEMP: 60.8,
+            ATTR_MAX_TEMP: 86,
+        },
+    )
+    for service in (
+        SERVICE_SET_HVAC_MODE,
+        SERVICE_SET_PRESET_MODE,
+        SERVICE_SET_SWING_MODE,
+        SERVICE_SET_FAN_MODE,
+    ):
+        async_mock_service(hass, "climate", service)
+    temperature_calls = async_mock_service(hass, "climate", SERVICE_SET_TEMPERATURE)
+    runtime = _runtime(hass)
+
+    await runtime.async_start_many(("flow",))
+
+    assert temperature_calls[0].data[ATTR_TEMPERATURE] == 71.6
+    await runtime.async_cancel("flow")

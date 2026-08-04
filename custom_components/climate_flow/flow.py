@@ -1,7 +1,9 @@
 """Domain models for saved Climate Flow definitions."""
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Any
 
 from .const import (
     CONF_DURATION,
@@ -88,3 +90,58 @@ class SavedFlow:
             CONF_TARGETS: list(self.targets),
             CONF_STAGES: [stage.as_dict() for stage in self.stages],
         }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> SavedFlow:
+        """Load a validated saved two-stage flow from config-subentry data."""
+        flow_id = data.get(CONF_FLOW_ID)
+        targets = data.get(CONF_TARGETS)
+        stages = data.get(CONF_STAGES)
+        if (
+            not isinstance(flow_id, str)
+            or not isinstance(targets, list)
+            or not all(isinstance(target, str) for target in targets)
+            or not isinstance(stages, list)
+            or len(stages) != 2
+        ):
+            raise ValueError("Invalid saved flow")
+        parsed_stages: list[FlowStage] = []
+        for raw_stage in stages:
+            if not isinstance(raw_stage, Mapping):
+                raise ValueError("Invalid saved flow stage")
+            raw_state = raw_stage.get("climate_state")
+            if not isinstance(raw_state, Mapping):
+                raise ValueError("Invalid saved climate state")
+            hvac_mode = raw_state.get(CONF_HVAC_MODE)
+            if not isinstance(hvac_mode, str):
+                raise ValueError("Invalid HVAC mode")
+            temperature = raw_state.get(CONF_TEMPERATURE_CELSIUS)
+            duration = raw_stage.get(CONF_DURATION)
+            optional_modes = (
+                raw_state.get(CONF_FAN_MODE),
+                raw_state.get(CONF_SWING_MODE),
+                raw_state.get(CONF_PRESET_MODE),
+            )
+            if (
+                (temperature is not None and not isinstance(temperature, int | float))
+                or (duration is not None and not isinstance(duration, int | float))
+                or not all(
+                    mode is None or isinstance(mode, str) for mode in optional_modes
+                )
+            ):
+                raise ValueError("Invalid saved climate state")
+            parsed_stages.append(
+                FlowStage(
+                    climate_state=ClimateState(
+                        hvac_mode=hvac_mode,
+                        temperature_celsius=(
+                            float(temperature) if temperature is not None else None
+                        ),
+                        fan_mode=optional_modes[0],
+                        swing_mode=optional_modes[1],
+                        preset_mode=optional_modes[2],
+                    ),
+                    duration_seconds=float(duration) if duration is not None else None,
+                )
+            )
+        return cls(flow_id=flow_id, targets=tuple(targets), stages=tuple(parsed_stages))

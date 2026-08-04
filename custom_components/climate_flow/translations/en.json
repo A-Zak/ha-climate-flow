@@ -2,7 +2,7 @@
     "config": {
         "step": {
             "user": {
-                "description": "Set up Climate Flow and create reusable two-stage flow definitions. Flow execution and climate control are not available yet.",
+                "description": "Set up Climate Flow and create reusable two-stage flow definitions.",
                 "title": "Climate Flow"
             }
         }
@@ -67,7 +67,27 @@
                 "no_targets": "Select at least one climate entity.",
                 "unsupported_targets": "The selected climate entities do not share an HVAC mode."
             },
-            "abort": {"reconfigure_successful": "Climate flow updated successfully."}
+            "abort": {
+                "flow_active": "Cancel this active flow before editing it.",
+                "reconfigure_successful": "Climate flow updated successfully."
+            }
+        }
+    },
+    "exceptions": {
+        "all_targets_failed": {"message": "The flow could not control any of its climate targets."},
+        "invalid_flow": {"message": "This saved flow cannot be executed."},
+        "no_flow_targets": {"message": "Select one or more Climate Flow switches."},
+        "target_owned": {"message": "{{target}} is already controlled by another active flow."},
+        "unknown_flow": {"message": "The selected saved flow is no longer available."}
+    },
+    "services": {
+        "start": {
+            "name": "Start flow",
+            "description": "Start the selected saved Climate Flow definitions."
+        },
+        "cancel": {
+            "name": "Cancel flow",
+            "description": "Cancel the selected active Climate Flow definitions without restoring climate state."
         }
     },
     "title": "Climate Flow"

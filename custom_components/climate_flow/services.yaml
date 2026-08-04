@@ -1,0 +1,11 @@
+start:
+  target:
+    entity:
+      domain: switch
+      integration: climate_flow
+
+cancel:
+  target:
+    entity:
+      domain: switch
+      integration: climate_flow

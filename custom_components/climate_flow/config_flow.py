@@ -167,6 +167,8 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
             return self._select_targets(user_input, step_id="reconfigure")
 
         subentry = self._get_reconfigure_subentry()
+        if self._is_reconfigure_active():
+            return self.async_abort(reason="flow_active")
         data = subentry.data
         self._name = subentry.title
         self._flow_id = str(data[CONF_FLOW_ID])
@@ -179,6 +181,8 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
     ) -> SubentryFlowResult:
         """Collect and validate the complete saved flow definition."""
         if user_input is not None:
+            if self._is_reconfigure_active():
+                return self.async_abort(reason="flow_active")
             stage_1_input = user_input["stage_1"]
             stage_2_input = user_input["stage_2"]
             if not all(
@@ -470,6 +474,18 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
         if self.source != SOURCE_RECONFIGURE:
             return None
         return self._get_reconfigure_subentry().subentry_id
+
+    def _is_reconfigure_active(self) -> bool:
+        """Return whether the reconfigured saved flow is currently executing."""
+        if self.source != SOURCE_RECONFIGURE:
+            return False
+        runtime = getattr(self._get_entry(), "runtime_data", None)
+        return bool(
+            runtime is not None
+            and getattr(runtime, "is_active", lambda _: False)(
+                self._get_reconfigure_subentry().subentry_id
+            )
+        )
 
     def _stage_from_input(
         self, user_input: Mapping[str, object], *, duration_required: bool

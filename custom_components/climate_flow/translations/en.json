@@ -1,75 +1,76 @@
 {
-  "config": {
-    "step": {
-      "user": {
-        "description": "Set up Climate Flow and create reusable two-stage flow definitions. Flow execution and climate control are not available yet.",
-        "title": "Climate Flow"
-      }
-    }
-  },
-  "config_subentries": {
-    "flow": {
-      "title": "Climate flow",
-      "step": {
-        "user": {
-          "title": "Create a climate flow",
-          "description": "Choose a name to generate an initial flow ID.",
-          "data": {
-            "name": "Flow name"
-          }
-        },
-        "details": {
-          "title": "Flow details",
-          "description": "The flow ID is a lowercase snake-case identifier. It can be changed without changing the flow's stable Home Assistant identity.",
-          "data": {
-            "name": "Flow name",
-            "flow_id": "Flow ID",
-            "targets": "Climate targets"
-          }
-        },
-        "stage_1": {
-          "title": "Stage 1",
-          "description": "Configure the first climate state and how long it remains active.",
-          "data": {
-            "hvac_mode": "HVAC mode",
-            "temperature": "Target temperature",
-            "fan_mode": "Fan mode",
-            "swing_mode": "Swing mode",
-            "preset_mode": "Preset mode",
-            "duration": "Duration"
-          }
-        },
-        "stage_2": {
-          "title": "Stage 2",
-          "description": "Configure the final climate state. Leave duration empty to complete immediately after applying it.",
-          "data": {
-            "hvac_mode": "HVAC mode",
-            "temperature": "Target temperature",
-            "fan_mode": "Fan mode",
-            "swing_mode": "Swing mode",
-            "preset_mode": "Preset mode",
-            "duration": "Duration"
-          }
-        },
-        "reconfigure": {
-          "title": "Update climate flow",
-          "description": "Update the saved two-stage flow definition."
+    "config": {
+        "step": {
+            "user": {
+                "description": "Set up Climate Flow and create reusable two-stage flow definitions. Flow execution and climate control are not available yet.",
+                "title": "Climate Flow"
+            }
         }
-      },
-      "error": {
-        "duplicate_flow_id": "This flow ID is already in use.",
-        "invalid_duration": "Enter a duration greater than zero.",
-        "invalid_flow_id": "Use lowercase letters, numbers, and single underscores only.",
-        "invalid_name": "Enter a flow name.",
-        "invalid_stage": "Choose a value supported by every selected climate target.",
-        "invalid_targets": "Select existing climate entities with compatible temperature ranges.",
-        "no_targets": "Select at least one climate entity.",
-        "unsupported_targets": "The selected climate entities do not share an HVAC mode."
-      },
-      "abort": {
-        "reconfigure_successful": "Climate flow updated successfully."
-      }
-    }
-  },
-  "title": "Climate Flow"
+    },
+    "config_subentries": {
+        "flow": {
+            "title": "Add climate flow",
+            "step": {
+                "user": {
+                    "title": "Create a climate flow",
+                    "description": "Choose a name to generate an initial flow ID.",
+                    "data": {"name": "Flow name"}
+                },
+                "details": {
+                    "title": "Configure flow",
+                    "description": "Configure the two climate states. A blank flow ID is generated from the flow name.",
+                    "sections": {
+                        "flow": {
+                            "name": "Flow",
+                            "description": "Choose the flow identity and climate targets.",
+                            "data": {
+                                "name": "Flow name",
+                                "flow_id": "Flow ID",
+                                "targets": "Climate targets"
+                            }
+                        },
+                        "stage_1": {
+                            "name": "Stage 1",
+                            "description": "Configure the first climate state and how long it remains active.",
+                            "data": {
+                                "hvac_mode": "HVAC mode",
+                                "temperature": "Target temperature",
+                                "fan_mode": "Fan mode",
+                                "swing_mode": "Swing mode",
+                                "preset_mode": "Preset mode",
+                                "duration": "Duration"
+                            }
+                        },
+                        "stage_2": {
+                            "name": "Stage 2",
+                            "description": "Configure the final climate state.",
+                            "data": {
+                                "hvac_mode": "HVAC mode",
+                                "temperature": "Target temperature",
+                                "fan_mode": "Fan mode",
+                                "swing_mode": "Swing mode",
+                                "preset_mode": "Preset mode"
+                            }
+                        }
+                    }
+                },
+                "reconfigure": {
+                    "title": "Update climate flow",
+                    "description": "Update the saved two-stage flow definition."
+                }
+            },
+            "error": {
+                "duplicate_flow_id": "This flow ID is already in use.",
+                "invalid_duration": "Enter a duration greater than zero.",
+                "invalid_flow_id": "Use lowercase letters, numbers, and single underscores only.",
+                "invalid_name": "Enter a flow name.",
+                "invalid_stage": "Choose a value supported by every selected climate target.",
+                "invalid_targets": "Select existing climate entities with compatible temperature ranges.",
+                "no_targets": "Select at least one climate entity.",
+                "unsupported_targets": "The selected climate entities do not share an HVAC mode."
+            },
+            "abort": {"reconfigure_successful": "Climate flow updated successfully."}
+        }
+    },
+    "title": "Climate Flow"
 }

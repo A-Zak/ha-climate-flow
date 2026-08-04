@@ -16,6 +16,7 @@ from homeassistant.config_entries import (
     SubentryFlowResult,
 )
 from homeassistant.core import callback
+from homeassistant.data_entry_flow import section
 from homeassistant.helpers.selector import (
     DurationSelector,
     EntitySelector,
@@ -143,22 +144,12 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
     async def async_step_user(
         self, user_input: dict[str, object] | None = None
     ) -> SubentryFlowResult:
-        """Collect the display name before suggesting a logical ID."""
-        if user_input is not None:
-            name = str(user_input[CONF_NAME]).strip()
-            if name:
-                self._name = name
-                self._flow_id = slugify(name)
-                self._targets = ()
-                self._stages = []
-                return await self.async_step_details()
-            return self.async_show_form(
-                step_id="user",
-                data_schema=self._name_schema(),
-                errors={CONF_NAME: "invalid_name"},
-            )
-
-        return self.async_show_form(step_id="user", data_schema=self._name_schema())
+        """Create a saved flow in one sectioned form."""
+        self._name = ""
+        self._flow_id = ""
+        self._targets = ()
+        self._stages = []
+        return await self.async_step_details(user_input)
 
     async def async_step_reconfigure(
         self, user_input: dict[str, object] | None = None
@@ -178,11 +169,21 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
     async def async_step_details(
         self, user_input: dict[str, object] | None = None
     ) -> SubentryFlowResult:
-        """Collect the flow identity and selected climate targets."""
+        """Collect and validate the complete saved flow definition."""
         if user_input is not None:
-            name = str(user_input[CONF_NAME]).strip()
-            flow_id = str(user_input[CONF_FLOW_ID]).strip()
-            targets = tuple(user_input[CONF_TARGETS])
+            identity = user_input["flow"]
+            stage_1_input = user_input["stage_1"]
+            stage_2_input = user_input["stage_2"]
+            if not all(
+                isinstance(value, Mapping)
+                for value in (identity, stage_1_input, stage_2_input)
+            ):
+                return self._show_details(errors={"base": "invalid_stage"})
+
+            name = str(identity[CONF_NAME]).strip()
+            entered_flow_id = str(identity.get(CONF_FLOW_ID, "")).strip()
+            flow_id = entered_flow_id or slugify(name)
+            targets = tuple(identity[CONF_TARGETS])
             errors = self._validate_details(name, flow_id, targets)
             if not errors:
                 try:
@@ -197,113 +198,110 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
                         self._flow_id = flow_id
                         self._targets = targets
                         self._capabilities = capabilities
-                        return await self.async_step_stage_1()
-            return self.async_show_form(
-                step_id="details",
-                data_schema=self._details_schema(),
-                errors=errors,
-            )
+                        try:
+                            stage_1 = self._stage_from_input(
+                                stage_1_input, duration_required=True
+                            )
+                            stage_2 = self._stage_from_input(
+                                stage_2_input, duration_required=False
+                            )
+                        except InvalidStageInputError:
+                            errors["base"] = "invalid_stage"
+                        except ValueError:
+                            errors["base"] = "invalid_duration"
+                        else:
+                            saved_flow = SavedFlow(
+                                flow_id=self._flow_id,
+                                targets=self._targets,
+                                stages=(stage_1, stage_2),
+                            )
+                            if self.source == SOURCE_RECONFIGURE:
+                                return self.async_update_and_abort(
+                                    self._get_entry(),
+                                    self._get_reconfigure_subentry(),
+                                    title=self._name,
+                                    data=saved_flow.as_dict(),
+                                    unique_id=self._flow_id,
+                                )
+                            return self.async_create_entry(
+                                title=self._name,
+                                data=saved_flow.as_dict(),
+                                unique_id=self._flow_id,
+                            )
+            return self._show_details(errors=errors)
 
+        return self._show_details()
+
+    def _show_details(
+        self, *, errors: dict[str, str] | None = None
+    ) -> SubentryFlowResult:
+        """Show the single form used to create or reconfigure a flow."""
         if self._targets:
             try:
                 self._capabilities = shared_capabilities(self.hass, self._targets)
             except InvalidClimateTargetsError:
                 pass
         return self.async_show_form(
-            step_id="details", data_schema=self._details_schema()
+            step_id="details", data_schema=self._details_schema(), errors=errors
         )
-
-    async def async_step_stage_1(
-        self, user_input: dict[str, object] | None = None
-    ) -> SubentryFlowResult:
-        """Collect the required-duration first stage."""
-        if user_input is not None:
-            try:
-                stage = self._stage_from_input(user_input, duration_required=True)
-            except InvalidStageInputError as err:
-                return self.async_show_form(
-                    step_id="stage_1",
-                    data_schema=self._stage_schema(1, duration_required=True),
-                    errors={err.field: "invalid_stage"},
-                )
-            except ValueError:
-                return self.async_show_form(
-                    step_id="stage_1",
-                    data_schema=self._stage_schema(1, duration_required=True),
-                    errors={CONF_DURATION: "invalid_duration"},
-                )
-            self._stages = [stage]
-            return await self.async_step_stage_2()
-
-        return self.async_show_form(
-            step_id="stage_1",
-            data_schema=self._stage_schema(1, duration_required=True),
-        )
-
-    async def async_step_stage_2(
-        self, user_input: dict[str, object] | None = None
-    ) -> SubentryFlowResult:
-        """Collect the optional-duration final stage and save the flow."""
-        if user_input is not None:
-            try:
-                stage = self._stage_from_input(user_input, duration_required=False)
-            except InvalidStageInputError as err:
-                return self.async_show_form(
-                    step_id="stage_2",
-                    data_schema=self._stage_schema(2, duration_required=False),
-                    errors={err.field: "invalid_stage"},
-                )
-            except ValueError:
-                return self.async_show_form(
-                    step_id="stage_2",
-                    data_schema=self._stage_schema(2, duration_required=False),
-                    errors={CONF_DURATION: "invalid_duration"},
-                )
-
-            saved_flow = SavedFlow(
-                flow_id=self._flow_id,
-                targets=self._targets,
-                stages=(self._stages[0], stage),
-            )
-            if self.source == SOURCE_RECONFIGURE:
-                return self.async_update_and_abort(
-                    self._get_entry(),
-                    self._get_reconfigure_subentry(),
-                    title=self._name,
-                    data=saved_flow.as_dict(),
-                    unique_id=self._flow_id,
-                )
-            return self.async_create_entry(
-                title=self._name,
-                data=saved_flow.as_dict(),
-                unique_id=self._flow_id,
-            )
-
-        return self.async_show_form(
-            step_id="stage_2",
-            data_schema=self._stage_schema(2, duration_required=False),
-        )
-
-    def _name_schema(self) -> vol.Schema:
-        """Return the first-step schema."""
-        return vol.Schema({vol.Required(CONF_NAME): TextSelector()})
 
     def _details_schema(self) -> vol.Schema:
-        """Return the flow details schema with its current suggestions."""
-        schema: dict[Any, Any] = {
-            vol.Required(CONF_NAME, default=self._name): TextSelector(),
-            vol.Required(CONF_FLOW_ID, default=self._flow_id): TextSelector(),
-            vol.Required(CONF_TARGETS, default=list(self._targets)): EntitySelector(
-                EntitySelectorConfig(filter={"domain": "climate"}, multiple=True)
-            ),
-        }
-        return vol.Schema(schema)
+        """Return the sectioned one-page schema for a saved flow."""
+        capabilities = getattr(self, "_capabilities", None)
+        if capabilities is None:
+            capabilities = SharedClimateCapabilities(
+                hvac_modes=(
+                    "auto",
+                    "cool",
+                    "dry",
+                    "fan_only",
+                    "heat",
+                    "heat_cool",
+                    "off",
+                ),
+                fan_modes=(),
+                swing_modes=(),
+                preset_modes=(),
+                minimum_temperature=temperature_to_celsius(self.hass, 1),
+                maximum_temperature=temperature_to_celsius(self.hass, 99),
+            )
+        identity = vol.Schema(
+            {
+                vol.Required(CONF_NAME, default=self._name): TextSelector(),
+                vol.Optional(CONF_FLOW_ID, default=self._flow_id): TextSelector(),
+                vol.Required(CONF_TARGETS, default=list(self._targets)): EntitySelector(
+                    EntitySelectorConfig(filter={"domain": "climate"}, multiple=True)
+                ),
+            }
+        )
+        return vol.Schema(
+            {
+                vol.Required("flow"): section(identity, {"collapsed": False}),
+                vol.Required("stage_1"): section(
+                    self._stage_schema(
+                        1, duration_required=True, capabilities=capabilities
+                    ),
+                    {"collapsed": False},
+                ),
+                vol.Required("stage_2"): section(
+                    self._stage_schema(
+                        2, duration_required=False, capabilities=capabilities
+                    ),
+                    {"collapsed": True},
+                ),
+            }
+        )
 
-    def _stage_schema(self, index: int, *, duration_required: bool) -> vol.Schema:
+    def _stage_schema(
+        self,
+        index: int,
+        *,
+        duration_required: bool,
+        capabilities: SharedClimateCapabilities,
+    ) -> vol.Schema:
         """Return the schema for one fixed Milestone 2 stage."""
         suggested = self._stages[index - 1] if len(self._stages) >= index else None
         state = suggested.climate_state if suggested else None
-        capabilities = self._capabilities
         hvac_selector = SelectSelector(
             SelectSelectorConfig(options=selector_options(capabilities.hvac_modes))
         )
@@ -316,8 +314,12 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
         }
         temperature_selector = NumberSelector(
             NumberSelectorConfig(
-                min=capabilities.minimum_temperature,
-                max=capabilities.maximum_temperature,
+                min=temperature_from_celsius(
+                    self.hass, capabilities.minimum_temperature
+                ),
+                max=temperature_from_celsius(
+                    self.hass, capabilities.maximum_temperature
+                ),
                 step=0.1,
                 unit_of_measurement=self.hass.config.units.temperature_unit,
                 mode=NumberSelectorMode.BOX,
@@ -353,16 +355,13 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
             capabilities.preset_modes,
             state.preset_mode if state else None,
         )
-        duration_suggestion = _duration_suggestion(
-            suggested.duration_seconds if suggested else None
-        )
-        schema[
-            self._field(
-                CONF_DURATION,
-                duration_suggestion,
-                required=duration_required,
+        if duration_required:
+            duration_suggestion = _duration_suggestion(
+                suggested.duration_seconds if suggested else None
             )
-        ] = DurationSelector()
+            schema[self._field(CONF_DURATION, duration_suggestion, required=True)] = (
+                DurationSelector()
+            )
         return vol.Schema(schema)
 
     @staticmethod
@@ -434,13 +433,14 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
         temperature: float | None = None
         if CONF_TEMPERATURE in user_input:
             temperature_input = float(user_input[CONF_TEMPERATURE])
+            temperature_celsius = temperature_to_celsius(self.hass, temperature_input)
             if not (
                 self._capabilities.minimum_temperature
-                <= temperature_input
+                <= temperature_celsius
                 <= self._capabilities.maximum_temperature
             ):
                 raise InvalidStageInputError(CONF_TEMPERATURE)
-            temperature = temperature_to_celsius(self.hass, temperature_input)
+            temperature = temperature_celsius
 
         hvac_mode = str(user_input[CONF_HVAC_MODE])
         if hvac_mode not in self._capabilities.hvac_modes:

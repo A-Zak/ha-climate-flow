@@ -25,7 +25,6 @@ from custom_components.climate_flow.const import (
     CONF_HVAC_MODE,
     CONF_STAGES,
     CONF_TARGETS,
-    CONF_TEMPERATURE,
     CONF_TEMPERATURE_CELSIUS,
     DOMAIN,
     FLOW_SUBENTRY_TYPE,
@@ -78,6 +77,24 @@ def _stage_input(
     return data
 
 
+def _flow_input(
+    name: str,
+    flow_id: str,
+    targets: list[str],
+    *,
+    stage_1_duration: dict[str, float] | None = None,
+) -> dict[str, object]:
+    """Return a complete submission for the sectioned saved-flow form."""
+    return {
+        "flow": {"name": name, CONF_FLOW_ID: flow_id, CONF_TARGETS: targets},
+        "stage_1": _stage_input(
+            "cool",
+            duration={"minutes": 30} if stage_1_duration is None else stage_1_duration,
+        ),
+        "stage_2": _stage_input("off"),
+    }
+
+
 async def _start_flow(hass: HomeAssistant, entry: MockConfigEntry) -> dict[str, object]:
     """Start a saved-flow subentry creation flow."""
     return await hass.config_entries.subentries.async_init(
@@ -99,17 +116,7 @@ async def _create_two_stage_flow(
         targets = ["climate.bedroom"]
     result = await _start_flow(hass, entry)
     result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], {"name": name}
-    )
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"],
-        {"name": name, CONF_FLOW_ID: flow_id, CONF_TARGETS: targets},
-    )
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], _stage_input("cool", duration={"minutes": 30})
-    )
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], _stage_input("off")
+        result["flow_id"], _flow_input(name, flow_id, targets)
     )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
@@ -181,40 +188,22 @@ async def test_create_saved_two_stage_flow(hass: HomeAssistant) -> None:
 
     result = await _start_flow(hass, entry)
     assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "user"
-
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], {"name": "Bedroom Night Cooling"}
-    )
     assert result["step_id"] == "details"
-
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"],
-        {
-            "name": "Bedroom Night Cooling",
-            CONF_FLOW_ID: "bedroom_cooling",
-            CONF_TARGETS: ["climate.bedroom"],
-        },
-    )
-    assert result["step_id"] == "stage_1"
 
     with pytest.raises(InvalidData, match="duration"):
         await hass.config_entries.subentries.async_configure(
-            result["flow_id"], _stage_input("cool")
+            result["flow_id"],
+            _flow_input(
+                "Bedroom Night Cooling",
+                "bedroom_cooling",
+                ["climate.bedroom"],
+                stage_1_duration={},
+            ),
         )
 
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"],
-        {
-            CONF_HVAC_MODE: "cool",
-            CONF_TEMPERATURE: 22,
-            CONF_DURATION: {"minutes": 30},
-        },
-    )
-    assert result["step_id"] == "stage_2"
-
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], _stage_input("off")
+        _flow_input("Bedroom Night Cooling", "bedroom_cooling", ["climate.bedroom"]),
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
@@ -238,30 +227,8 @@ async def test_flow_uses_name_derived_id_when_it_is_not_edited(
 
     result = await _start_flow(hass, entry)
     result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], {"name": "Bedroom Night Cooling"}
-    )
-    flow_id_field = next(
-        field for field in result["data_schema"].schema if field.schema == CONF_FLOW_ID
-    )
-    suggested_flow_id = flow_id_field.default
-    if callable(suggested_flow_id):
-        suggested_flow_id = suggested_flow_id()
-    assert suggested_flow_id == "bedroom_night_cooling"
-    result = await hass.config_entries.subentries.async_configure(
         result["flow_id"],
-        {
-            "name": "Bedroom Night Cooling",
-            CONF_FLOW_ID: "bedroom_night_cooling",
-            CONF_TARGETS: ["climate.bedroom"],
-        },
-    )
-    assert result["step_id"] == "stage_1"
-
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], _stage_input("cool", duration={"minutes": 30})
-    )
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], _stage_input("off")
+        _flow_input("Bedroom Night Cooling", "", ["climate.bedroom"]),
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
@@ -281,21 +248,14 @@ async def test_saved_flow_rejects_duplicate_id_and_empty_targets(
 
     result = await _start_flow(hass, entry)
     result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], {"name": "Duplicate"}
-    )
-    result = await hass.config_entries.subentries.async_configure(
         result["flow_id"],
-        {
-            "name": "Duplicate",
-            CONF_FLOW_ID: "bedroom_night_cooling",
-            CONF_TARGETS: ["climate.bedroom"],
-        },
+        _flow_input("Duplicate", "bedroom_night_cooling", ["climate.bedroom"]),
     )
     assert result["errors"][CONF_FLOW_ID] == "duplicate_flow_id"
 
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"],
-        {"name": "Duplicate", CONF_FLOW_ID: "duplicate", CONF_TARGETS: []},
+        _flow_input("Duplicate", "duplicate", []),
     )
     assert result["errors"][CONF_TARGETS] == "no_targets"
 
@@ -311,15 +271,10 @@ async def test_saved_flow_rejects_targets_without_a_shared_hvac_mode(
 
     result = await _start_flow(hass, entry)
     result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], {"name": "Incompatible"}
-    )
-    result = await hass.config_entries.subentries.async_configure(
         result["flow_id"],
-        {
-            "name": "Incompatible",
-            CONF_FLOW_ID: "incompatible",
-            CONF_TARGETS: ["climate.bedroom", "climate.office"],
-        },
+        _flow_input(
+            "Incompatible", "incompatible", ["climate.bedroom", "climate.office"]
+        ),
     )
 
     assert result["step_id"] == "details"
@@ -381,17 +336,12 @@ async def test_reconfigure_name_preserves_subentry_identity_and_flow_id(
 
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"],
-        {
-            "name": "Bedroom Evening Cooling",
-            CONF_FLOW_ID: "bedroom_night_cooling",
-            CONF_TARGETS: ["climate.bedroom"],
-        },
-    )
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], _stage_input("cool", duration={"minutes": 20})
-    )
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], _stage_input("off")
+        _flow_input(
+            "Bedroom Evening Cooling",
+            "bedroom_night_cooling",
+            ["climate.bedroom"],
+            stage_1_duration={"minutes": 20},
+        ),
     )
 
     assert result["type"] is FlowResultType.ABORT

@@ -132,8 +132,8 @@ Possible properties may include:
 - Optional display name or description.
 
 Milestone 2 stages have no custom display names and are shown as `Stage 1` and
-`Stage 2`. Stage 1 has a required duration; Stage 2 may omit its duration to
-indicate a future immediate final state.
+`Stage 2`. Stage 1 has a required duration; Stage 2 completes immediately
+after applying its state.
 
 ### Climate state
 

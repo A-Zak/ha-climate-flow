@@ -37,9 +37,8 @@ Each saved flow has three distinct identity values:
 - `flow_id` is the user-facing logical identifier stored with the flow.
 - The Home Assistant config subentry ID is the stable internal identity.
 
-When a flow is first created, its name is converted to lowercase snake case
-and used as the suggested flow ID. The generated value is displayed in an
-editable field before the flow is saved.
+When a flow ID is left blank, the flow name is converted to lowercase snake
+case before saving. Users may enter a flow ID explicitly in the same form.
 
 A flow ID must:
 
@@ -84,11 +83,10 @@ Milestone 2 always stores exactly two stages. Stages do not have custom names.
 
 - Required HVAC mode
 - Optional target temperature, fan mode, swing mode, and preset mode
-- Optional positive duration
 
-When Stage 2 has no duration, its intended future meaning is to apply its
-climate state and complete immediately. This supports a final state such as
-turning the targets off.
+Stage 2 has no duration in Milestone 2. Its intended future meaning is to
+apply its climate state and complete immediately. This supports a final state
+such as turning the targets off.
 
 The stored representation should use an ordered stage collection even though
 this milestone validates its length as exactly two. This avoids a destructive
@@ -130,7 +128,7 @@ schema replacement when arbitrary stage counts are introduced later.
 - Require one or more climate targets.
 - Verify capability intersections and reject unsupported values.
 - Validate canonical temperature conversion and positive duration storage.
-- Require exactly two stages, a Stage 1 duration, and only an optional Stage 2
+- Require exactly two stages and a Stage 1 duration; do not expose a Stage 2
   duration.
 - Cover all config-subentry flow results, errors, and translations.
 

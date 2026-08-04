@@ -47,10 +47,18 @@ def _climate_attributes(
 ) -> dict[str, object]:
     """Return a representative climate entity capability set."""
     return {
-        ATTR_HVAC_MODES: hvac_modes or ["off", "cool", "heat"],
-        ATTR_FAN_MODES: fan_modes or ["auto", "high"],
-        ATTR_SWING_MODES: swing_modes or ["off", "vertical"],
-        ATTR_PRESET_MODES: preset_modes or ["none", "eco"],
+        ATTR_HVAC_MODES: hvac_modes
+        if hvac_modes is not None
+        else ["off", "cool", "heat"],
+        ATTR_FAN_MODES: fan_modes
+        if fan_modes is not None
+        else ["auto", "high"],
+        ATTR_SWING_MODES: swing_modes
+        if swing_modes is not None
+        else ["off", "vertical"],
+        ATTR_PRESET_MODES: preset_modes
+        if preset_modes is not None
+        else ["none", "eco"],
         ATTR_MIN_TEMP: 16,
         ATTR_MAX_TEMP: 30,
     }
@@ -191,11 +199,17 @@ async def test_create_saved_two_stage_flow(hass: HomeAssistant) -> None:
         result["flow_id"],
         {
             "name": "Bedroom Night Cooling",
-            CONF_FLOW_ID: "bedroom_night_cooling",
+            CONF_FLOW_ID: "bedroom_cooling",
             CONF_TARGETS: ["climate.bedroom"],
         },
     )
     assert result["step_id"] == "stage_1"
+
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], _stage_input("cool")
+    )
+    assert result["step_id"] == "stage_1"
+    assert result["errors"][CONF_DURATION] == "invalid_duration"
 
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"],
@@ -215,11 +229,55 @@ async def test_create_saved_two_stage_flow(hass: HomeAssistant) -> None:
 
     subentry = next(iter(entry.subentries.values()))
     assert subentry.title == "Bedroom Night Cooling"
-    assert subentry.unique_id == "bedroom_night_cooling"
-    assert subentry.data[CONF_FLOW_ID] == "bedroom_night_cooling"
+    assert subentry.unique_id == "bedroom_cooling"
+    assert subentry.data[CONF_FLOW_ID] == "bedroom_cooling"
     assert len(subentry.data[CONF_STAGES]) == 2
     assert subentry.data[CONF_STAGES][0][CONF_DURATION] == 1800
     assert CONF_DURATION not in subentry.data[CONF_STAGES][1]
+
+
+async def test_flow_uses_name_derived_id_when_it_is_not_edited(
+    hass: HomeAssistant,
+) -> None:
+    """Test saving the generated logical ID without explicitly editing it."""
+    _add_climate(hass, "climate.bedroom")
+    entry = MockConfigEntry(domain=DOMAIN, title="Climate Flow", data={})
+    entry.add_to_hass(hass)
+
+    result = await _start_flow(hass, entry)
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {"name": "Bedroom Night Cooling"}
+    )
+    flow_id_field = next(
+        field
+        for field in result["data_schema"].schema
+        if field.schema == CONF_FLOW_ID
+    )
+    suggested_flow_id = flow_id_field.default
+    if callable(suggested_flow_id):
+        suggested_flow_id = suggested_flow_id()
+    assert suggested_flow_id == "bedroom_night_cooling"
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            "name": "Bedroom Night Cooling",
+            CONF_FLOW_ID: "bedroom_night_cooling",
+            CONF_TARGETS: ["climate.bedroom"],
+        },
+    )
+    assert result["step_id"] == "stage_1"
+
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], _stage_input("cool", duration={"minutes": 30})
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], _stage_input("off")
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+
+    subentry = next(iter(entry.subentries.values()))
+    assert subentry.unique_id == "bedroom_night_cooling"
 
 
 async def test_saved_flow_rejects_duplicate_id_and_empty_targets(
@@ -252,8 +310,71 @@ async def test_saved_flow_rejects_duplicate_id_and_empty_targets(
     assert result["errors"][CONF_TARGETS] == "no_targets"
 
 
-async def test_reconfigure_preserves_subentry_identity(hass: HomeAssistant) -> None:
-    """Test logical ID changes do not replace the config subentry."""
+async def test_saved_flow_rejects_targets_without_a_shared_hvac_mode(
+    hass: HomeAssistant,
+) -> None:
+    """Test incompatible target capabilities cannot reach a stage form."""
+    _add_climate(hass, "climate.bedroom", hvac_modes=["cool"])
+    _add_climate(hass, "climate.office", hvac_modes=["heat"])
+    entry = MockConfigEntry(domain=DOMAIN, title="Climate Flow", data={})
+    entry.add_to_hass(hass)
+
+    result = await _start_flow(hass, entry)
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {"name": "Incompatible"}
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            "name": "Incompatible",
+            CONF_FLOW_ID: "incompatible",
+            CONF_TARGETS: ["climate.bedroom", "climate.office"],
+        },
+    )
+
+    assert result["step_id"] == "details"
+    assert result["errors"]["base"] == "unsupported_targets"
+
+
+async def test_saved_flows_are_independent_subentries_and_can_be_removed(
+    hass: HomeAssistant,
+) -> None:
+    """Test native subentry removal affects only the selected saved flow."""
+    _add_climate(hass, "climate.bedroom")
+    _add_climate(hass, "climate.office")
+    entry = MockConfigEntry(domain=DOMAIN, title="Climate Flow", data={})
+    entry.add_to_hass(hass)
+
+    await _create_two_stage_flow(
+        hass,
+        entry,
+        name="Bedroom Night Cooling",
+        flow_id="bedroom_night_cooling",
+        targets=["climate.bedroom"],
+    )
+    await _create_two_stage_flow(
+        hass,
+        entry,
+        name="Office Night Cooling",
+        flow_id="office_night_cooling",
+        targets=["climate.office"],
+    )
+
+    assert len(entry.subentries) == 2
+    bedroom = next(
+        subentry
+        for subentry in entry.subentries.values()
+        if subentry.unique_id == "bedroom_night_cooling"
+    )
+    assert hass.config_entries.async_remove_subentry(entry, bedroom.subentry_id)
+    assert len(entry.subentries) == 1
+    assert next(iter(entry.subentries.values())).unique_id == "office_night_cooling"
+
+
+async def test_reconfigure_name_preserves_subentry_identity_and_flow_id(
+    hass: HomeAssistant,
+) -> None:
+    """Test renaming does not replace a subentry or regenerate its flow ID."""
     _add_climate(hass, "climate.bedroom")
     entry = MockConfigEntry(domain=DOMAIN, title="Climate Flow", data={})
     entry.add_to_hass(hass)
@@ -272,7 +393,7 @@ async def test_reconfigure_preserves_subentry_identity(hass: HomeAssistant) -> N
         result["flow_id"],
         {
             "name": "Bedroom Evening Cooling",
-            CONF_FLOW_ID: "bedroom_evening",
+            CONF_FLOW_ID: "bedroom_night_cooling",
             CONF_TARGETS: ["climate.bedroom"],
         },
     )
@@ -290,4 +411,4 @@ async def test_reconfigure_preserves_subentry_identity(hass: HomeAssistant) -> N
     updated = entry.subentries[subentry.subentry_id]
     assert updated.subentry_id == subentry.subentry_id
     assert updated.title == "Bedroom Evening Cooling"
-    assert updated.unique_id == "bedroom_evening"
+    assert updated.unique_id == "bedroom_night_cooling"

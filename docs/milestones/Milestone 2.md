@@ -8,6 +8,9 @@ the Home Assistant integration UI.
 Milestone 2 stores configuration only. It does not run flows or control
 climate entities.
 
+Milestone 2 requires Home Assistant 2025.3 or newer, which introduced native
+config subentries.
+
 ## Included
 
 - A `flow` config subentry type owned by the singleton Climate Flow config

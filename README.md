@@ -12,6 +12,9 @@ dashboard UI are not implemented yet.
 
 ## Installation
 
+Climate Flow Milestone 2 requires Home Assistant 2025.3 or newer because it
+uses native config subentries for saved flows.
+
 The repository is structured as a HACS custom integration. Until it is
 published, add this repository to HACS as a custom integration repository,
 then install Climate Flow and restart Home Assistant.

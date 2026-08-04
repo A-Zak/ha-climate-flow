@@ -175,6 +175,16 @@ async def test_conflicting_flow_start_keeps_switch_idle_and_is_translated(
     await asyncio.sleep(0.15)
     await hass.async_block_till_done()
     assert state_changes[-1].data["new_state"].state == "off"
+    assert any(
+        event.data["new_state"].attributes.get("_climate_flow_rejected_start")
+        for event in state_changes
+    )
+    await asyncio.sleep(0.15)
+    await hass.async_block_till_done()
+    assert (
+        "_climate_flow_rejected_start"
+        not in hass.states.get("switch.overlapping_flow").attributes
+    )
     unsubscribe()
 
 

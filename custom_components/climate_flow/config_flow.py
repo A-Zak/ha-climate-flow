@@ -15,7 +15,7 @@ from homeassistant.config_entries import (
     SubentryFlowContext,
     SubentryFlowResult,
 )
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import callback
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers.selector import (
     DurationSelector,
@@ -27,7 +27,6 @@ from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
     TextSelector,
-    TextSelectorConfig,
 )
 from homeassistant.util import slugify
 
@@ -93,15 +92,6 @@ def _duration_suggestion(seconds: float | None) -> dict[str, float] | None:
     if milliseconds:
         suggestion["milliseconds"] = round(milliseconds * 1000, 3)
     return suggestion
-
-
-def _temperature_range_label(
-    hass: HomeAssistant, capabilities: SharedClimateCapabilities
-) -> str:
-    """Return the common target temperature range in Home Assistant's unit."""
-    minimum = temperature_from_celsius(hass, capabilities.minimum_temperature)
-    maximum = temperature_from_celsius(hass, capabilities.maximum_temperature)
-    return f"{minimum:g} - {maximum:g}"
 
 
 class InvalidStageInputError(ValueError):
@@ -189,21 +179,15 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
     ) -> SubentryFlowResult:
         """Collect and validate the complete saved flow definition."""
         if user_input is not None:
-            identity = user_input["flow"]
-            advanced = user_input["advanced"]
             stage_1_input = user_input["stage_1"]
             stage_2_input = user_input["stage_2"]
             if not all(
-                isinstance(value, Mapping)
-                for value in (identity, advanced, stage_1_input, stage_2_input)
+                isinstance(value, Mapping) for value in (stage_1_input, stage_2_input)
             ):
                 return self._show_details(errors={"base": "invalid_stage"})
 
-            name = str(identity[CONF_NAME]).strip()
-            entered_flow_id = str(advanced.get(CONF_FLOW_ID, "")).strip()
-            flow_id = entered_flow_id or slugify(name).replace("_", "-")
             targets = self._targets
-            errors = self._validate_details(name, flow_id, targets)
+            errors = self._validate_details(self._name, self._flow_id, targets)
             if not errors:
                 try:
                     capabilities = shared_capabilities(self.hass, targets)
@@ -213,8 +197,6 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
                     if not capabilities.hvac_modes:
                         errors["base"] = "unsupported_targets"
                     else:
-                        self._name = name
-                        self._flow_id = flow_id
                         self._targets = targets
                         self._capabilities = capabilities
                         try:
@@ -268,7 +250,14 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
         self, user_input: dict[str, object], *, step_id: str
     ) -> SubentryFlowResult:
         """Validate selected targets before rendering compatible controls."""
+        name = str(user_input[CONF_NAME]).strip()
         targets = tuple(user_input[CONF_TARGETS])
+        flow_id = self._flow_id or slugify(name).replace("_", "-")
+        errors = self._validate_details(name, flow_id, targets)
+        if errors:
+            if CONF_FLOW_ID in errors:
+                errors["base"] = errors.pop(CONF_FLOW_ID)
+            return self._show_targets(step_id=step_id, errors=errors)
         if not targets:
             return self._show_targets(
                 step_id=step_id, errors={CONF_TARGETS: "no_targets"}
@@ -284,6 +273,8 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
                 step_id=step_id, errors={"base": "unsupported_targets"}
             )
         self._targets = targets
+        self._name = name
+        self._flow_id = flow_id
         self._capabilities = capabilities
         return self._show_details()
 
@@ -317,19 +308,8 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
                 minimum_temperature=temperature_to_celsius(self.hass, 1),
                 maximum_temperature=temperature_to_celsius(self.hass, 99),
             )
-        identity = vol.Schema(
-            {
-                vol.Required(CONF_NAME, default=self._name): TextSelector(),
-            }
-        )
-        advanced = vol.Schema(
-            {
-                vol.Optional(CONF_FLOW_ID, default=self._flow_id): TextSelector(),
-            }
-        )
         return vol.Schema(
             {
-                vol.Required("flow"): section(identity, {"collapsed": False}),
                 vol.Required("stage_1"): section(
                     self._stage_schema(
                         1, duration_required=True, capabilities=capabilities
@@ -342,7 +322,6 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
                     ),
                     {"collapsed": False},
                 ),
-                vol.Required("advanced"): section(advanced, {"collapsed": True}),
             }
         )
 
@@ -350,9 +329,10 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
         """Return the preliminary target selection schema."""
         return vol.Schema(
             {
+                vol.Required(CONF_NAME, default=self._name): TextSelector(),
                 vol.Required(CONF_TARGETS, default=list(self._targets)): EntitySelector(
                     EntitySelectorConfig(filter={"domain": "climate"}, multiple=True)
-                )
+                ),
             }
         )
 
@@ -401,17 +381,6 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
                 required=False,
             )
         ] = temperature_selector
-        schema[
-            vol.Optional(
-                "temperature_range",
-                default=_temperature_range_label(self.hass, capabilities),
-            )
-        ] = TextSelector(
-            TextSelectorConfig(
-                read_only=True,
-                suffix=self.hass.config.units.temperature_unit,
-            )
-        )
         self._add_optional_mode(
             schema,
             CONF_FAN_MODE,

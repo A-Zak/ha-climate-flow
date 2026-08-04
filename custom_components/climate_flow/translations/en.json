@@ -13,34 +13,22 @@
             "step": {
                 "user": {
                     "title": "Choose climate targets",
-                    "description": "Choose the climate entities this flow will coordinate. The next form shows only controls they all support.",
-                    "data": {"targets": "Climate targets"}
+                    "description": "Name this flow and choose the climate entities it will coordinate. The next form shows only controls they all support.",
+                    "data": {
+                        "name": "Flow name",
+                        "targets": "Climate targets"
+                    }
                 },
                 "details": {
                     "title": "Configure flow",
-                    "description": "Configure the two climate states. A blank flow ID is generated as lowercase kebab-case from the flow name.",
+                    "description": "Configure the two climate states.",
                     "sections": {
-                        "flow": {
-                            "name": "Flow",
-                            "description": "Choose a name for this flow.",
-                            "data": {
-                                "name": "Flow name"
-                            }
-                        },
-                        "advanced": {
-                            "name": "Advanced",
-                            "description": "Change the generated flow ID only when needed.",
-                            "data": {
-                                "flow_id": "Flow ID"
-                            }
-                        },
                         "stage_1": {
                             "name": "Stage 1",
                             "description": "Configure the first climate state and how long it remains active.",
                             "data": {
                                 "hvac_mode": "HVAC mode",
                                 "temperature": "Target temperature",
-                                "temperature_range": "Supported temperature range",
                                 "fan_mode": "Fan mode",
                                 "swing_mode": "Swing mode",
                                 "preset_mode": "Preset mode",
@@ -53,7 +41,6 @@
                             "data": {
                                 "hvac_mode": "HVAC mode",
                                 "temperature": "Target temperature",
-                                "temperature_range": "Supported temperature range",
                                 "fan_mode": "Fan mode",
                                 "swing_mode": "Swing mode",
                                 "preset_mode": "Preset mode"
@@ -63,14 +50,17 @@
                 },
                 "reconfigure": {
                     "title": "Update climate flow",
-                    "description": "Choose the climate entities this flow will coordinate. The next form shows only controls they all support.",
-                    "data": {"targets": "Climate targets"}
+                    "description": "Rename this flow and choose the climate entities it will coordinate. The next form shows only controls they all support.",
+                    "data": {
+                        "name": "Flow name",
+                        "targets": "Climate targets"
+                    }
                 }
             },
             "error": {
-                "duplicate_flow_id": "This flow ID is already in use.",
+                "duplicate_flow_id": "Another flow already uses the ID generated from this name.",
                 "invalid_duration": "Enter a duration greater than zero.",
-                "invalid_flow_id": "Use lowercase letters, numbers, and single hyphens only.",
+                "invalid_flow_id": "Use a name that can generate a valid identifier.",
                 "invalid_name": "Enter a flow name.",
                 "invalid_stage": "Choose a value supported by every selected climate target.",
                 "invalid_targets": "Select existing climate entities with compatible temperature ranges.",

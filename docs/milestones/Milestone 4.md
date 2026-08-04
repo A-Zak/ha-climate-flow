@@ -17,6 +17,24 @@ and add clock-time and temperature-based completion conditions.
 - Richer runtime status attributes
 - Active-flow edit protection for the generalized editor
 - Idempotent handling of competing completion signals
+- An integration-owned sidebar panel for managing saved flows
+
+## Flow management panel
+
+Milestone 4 adds a Climate Flow sidebar panel as the primary flow-management
+experience. It provides clearly labeled controls to create, edit, and remove
+flows, including an **Add flow** button, and presents the saved-flow list and
+its generalized stage editor in one place.
+
+The panel continues to use native Home Assistant config subentries as the
+stored flow definitions. The existing Integrations-page subentry UI remains
+available as a compatible fallback, but Climate Flow documentation directs
+users to the panel for normal management.
+
+The panel must use supported Home Assistant frontend and backend APIs, keep
+all validation in the integration backend, and surface configuration failures
+as actionable user-facing messages. It does not introduce a separate storage
+format or bypass config-subentry identity.
 
 ## Stage model and migration
 
@@ -125,28 +143,34 @@ flow cancels it before removal.
 - Prevent duplicate advancement across every competing callback combination.
 - Reject edits while active and preserve stable flow switch identity.
 - Validate richer status attributes, terminal results, errors, and cleanup.
+- Verify the sidebar panel's labeled create, edit, and remove controls use the
+  same config-subentry data and validation as the native fallback UI.
 
 ## Manual smoke test
 
 1. Install the Milestone 4 build and restart Home Assistant.
 2. Confirm existing two-stage flows migrate unchanged.
-3. Add, name, remove, and reorder stages through the integration UI.
-4. Run a flow with more than two duration stages and verify their order.
-5. Run a clock-time stage and verify it advances at the configured local time.
-6. Run temperature stages using both `any` and `all` across multiple targets.
-7. Confirm an already-satisfied temperature stage advances immediately.
-8. Confirm a temperature safety timeout fails rather than advances the flow.
-9. Attempt to edit an active flow and verify the UI instructs cancellation
+3. Use the Climate Flow sidebar panel to add, name, remove, and reorder stages.
+4. Confirm its **Add flow** button is visibly labeled and the native
+   Integrations-page subentry UI remains usable as a fallback.
+5. Run a flow with more than two duration stages and verify their order.
+6. Run a clock-time stage and verify it advances at the configured local time.
+7. Run temperature stages using both `any` and `all` across multiple targets.
+8. Confirm an already-satisfied temperature stage advances immediately.
+9. Confirm a temperature safety timeout fails rather than advances the flow.
+10. Attempt to edit an active flow and verify the UI instructs cancellation
    first.
-10. Confirm switch status attributes and logs describe stage transitions and
-    the terminal result.
-11. Inspect the temporary debug logs, then disable the debug logger overrides
-    after the smoke test passes.
+11. Confirm switch status attributes and logs describe stage transitions and
+   the terminal result.
+12. Inspect the temporary debug logs, then disable the debug logger overrides
+   after the smoke test passes.
 
 ## Completion criteria
 
 - Existing two-stage flows migrate without behavioral or identity changes.
 - Users can manage two or more ordered, optionally named stages in the UI.
+- The labeled sidebar management panel and native subentry fallback operate on
+  the same saved-flow definitions.
 - Duration, clock-time, and temperature completion conditions behave as
   documented.
 - Safety timeouts and competing callbacks fail or advance exactly once.

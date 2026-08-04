@@ -3,6 +3,7 @@
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .runtime import ClimateFlowRuntime
@@ -41,6 +42,7 @@ class ClimateFlowSwitch(SwitchEntity):
     _attr_has_entity_name = True
     _attr_icon = "mdi:hvac"
     _attr_should_poll = False
+    _attr_force_update = True
 
     def __init__(self, runtime: ClimateFlowRuntime, flow_key: str) -> None:
         """Initialize a stable switch for one config subentry."""
@@ -85,7 +87,11 @@ class ClimateFlowSwitch(SwitchEntity):
 
     async def async_turn_on(self, **kwargs: object) -> None:
         """Start this saved flow."""
-        await self._runtime.async_start_many((self._flow_key,), self._context)
+        try:
+            await self._runtime.async_start_many((self._flow_key,), self._context)
+        except HomeAssistantError:
+            self.async_write_ha_state()
+            raise
 
     async def async_turn_off(self, **kwargs: object) -> None:
         """Cancel this saved flow."""

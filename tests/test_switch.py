@@ -1,19 +1,22 @@
 """Tests for saved-flow switch entities and Climate Flow actions."""
 
+import pytest
 from homeassistant.components.climate.const import (
     ATTR_HVAC_MODES,
     ATTR_MAX_TEMP,
     ATTR_MIN_TEMP,
     SERVICE_SET_HVAC_MODE,
 )
+from homeassistant.components.switch import SERVICE_TURN_ON
 from homeassistant.config_entries import (
     SOURCE_RECONFIGURE,
     ConfigSubentry,
     SubentryFlowContext,
 )
-from homeassistant.const import ATTR_ENTITY_ID
-from homeassistant.core import HomeAssistant
+from homeassistant.const import ATTR_ENTITY_ID, EVENT_STATE_CHANGED
+from homeassistant.core import Event, HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
@@ -101,6 +104,73 @@ async def test_switch_and_actions_start_and_cancel_saved_flow(
 
     assert hass.states.get(entity_id).state == "off"
     assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_conflicting_flow_start_keeps_switch_idle_and_is_translated(
+    hass: HomeAssistant,
+) -> None:
+    """Test an overlapping flow start reports its target and remains idle."""
+    hass.states.async_set(
+        "climate.bedroom",
+        "cool",
+        {
+            ATTR_HVAC_MODES: ["cool", "off"],
+            ATTR_MIN_TEMP: 16,
+            ATTR_MAX_TEMP: 30,
+        },
+    )
+    async_mock_service(hass, "climate", SERVICE_SET_HVAC_MODE)
+    entry = _entry()
+    overlap = ConfigSubentry(
+        subentry_id="overlap-flow",
+        subentry_type=FLOW_SUBENTRY_TYPE,
+        title="Overlapping Flow",
+        unique_id="overlapping-flow",
+        data=SavedFlow(
+            flow_id="overlapping-flow",
+            targets=("climate.bedroom",),
+            stages=(
+                FlowStage(ClimateState(hvac_mode="cool"), duration_seconds=30),
+                FlowStage(ClimateState(hvac_mode="off")),
+            ),
+        ).as_dict(),
+    )
+    entry.add_to_hass(hass)
+    assert hass.config_entries.async_add_subentry(entry, overlap)
+    assert await async_setup_component(hass, DOMAIN, {})
+    await hass.async_block_till_done()
+
+    await hass.services.async_call(
+        DOMAIN,
+        "start",
+        {ATTR_ENTITY_ID: "switch.bedroom_night"},
+        blocking=True,
+    )
+    state_changes: list[Event] = []
+    unsubscribe = hass.bus.async_listen(
+        EVENT_STATE_CHANGED,
+        lambda event: (
+            state_changes.append(event)
+            if event.data["entity_id"] == "switch.overlapping_flow"
+            else None
+        ),
+    )
+    with pytest.raises(ServiceValidationError) as error:
+        await hass.services.async_call(
+            "switch",
+            SERVICE_TURN_ON,
+            {ATTR_ENTITY_ID: "switch.overlapping_flow"},
+            blocking=True,
+        )
+    await hass.async_block_till_done()
+
+    assert (
+        str(error.value)
+        == "climate.bedroom is already controlled by another active flow"
+    )
+    assert hass.states.get("switch.overlapping_flow").state == "off"
+    assert state_changes[-1].data["new_state"].state == "off"
+    unsubscribe()
 
 
 async def test_subentry_changes_add_and_remove_switches_without_stopping_runs(

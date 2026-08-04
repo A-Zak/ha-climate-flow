@@ -77,7 +77,7 @@
         "all_targets_failed": {"message": "The flow could not control any of its climate targets."},
         "invalid_flow": {"message": "This saved flow cannot be executed."},
         "no_flow_targets": {"message": "Select one or more Climate Flow switches."},
-        "target_owned": {"message": "{{target}} is already controlled by another active flow."},
+        "target_owned": {"message": "{target} is already controlled by another active flow."},
         "unknown_flow": {"message": "The selected saved flow is no longer available."}
     },
     "services": {

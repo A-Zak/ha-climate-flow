@@ -1,7 +1,5 @@
 """Tests for saved-flow switch entities and Climate Flow actions."""
 
-import asyncio
-
 import pytest
 from homeassistant.components.climate.const import (
     ATTR_HVAC_MODES,
@@ -15,8 +13,8 @@ from homeassistant.config_entries import (
     ConfigSubentry,
     SubentryFlowContext,
 )
-from homeassistant.const import ATTR_ENTITY_ID, EVENT_STATE_CHANGED
-from homeassistant.core import Event, HomeAssistant
+from homeassistant.const import ATTR_ENTITY_ID
+from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.setup import async_setup_component
@@ -148,15 +146,6 @@ async def test_conflicting_flow_start_keeps_switch_idle_and_is_translated(
         {ATTR_ENTITY_ID: "switch.bedroom_night"},
         blocking=True,
     )
-    state_changes: list[Event] = []
-    unsubscribe = hass.bus.async_listen(
-        EVENT_STATE_CHANGED,
-        lambda event: (
-            state_changes.append(event)
-            if event.data["entity_id"] == "switch.overlapping_flow"
-            else None
-        ),
-    )
     with pytest.raises(ServiceValidationError) as error:
         await hass.services.async_call(
             "switch",
@@ -164,28 +153,12 @@ async def test_conflicting_flow_start_keeps_switch_idle_and_is_translated(
             {ATTR_ENTITY_ID: "switch.overlapping_flow"},
             blocking=True,
         )
-    await hass.async_block_till_done()
 
     assert (
         str(error.value)
         == "climate.bedroom is already controlled by another active flow"
     )
     assert hass.states.get("switch.overlapping_flow").state == "off"
-    assert not state_changes
-    await asyncio.sleep(0.15)
-    await hass.async_block_till_done()
-    assert state_changes[-1].data["new_state"].state == "off"
-    assert any(
-        event.data["new_state"].attributes.get("_climate_flow_rejected_start")
-        for event in state_changes
-    )
-    await asyncio.sleep(0.15)
-    await hass.async_block_till_done()
-    assert (
-        "_climate_flow_rejected_start"
-        not in hass.states.get("switch.overlapping_flow").attributes
-    )
-    unsubscribe()
 
 
 async def test_subentry_changes_add_and_remove_switches_without_stopping_runs(

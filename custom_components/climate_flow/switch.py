@@ -1,13 +1,9 @@
 """Switch entities for saved Climate Flow definitions."""
 
-from datetime import datetime
-
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
-from homeassistant.helpers.event import async_call_later
 
 from .runtime import ClimateFlowRuntime
 
@@ -45,13 +41,11 @@ class ClimateFlowSwitch(SwitchEntity):
     _attr_has_entity_name = True
     _attr_icon = "mdi:hvac"
     _attr_should_poll = False
-    _attr_force_update = True
 
     def __init__(self, runtime: ClimateFlowRuntime, flow_key: str) -> None:
         """Initialize a stable switch for one config subentry."""
         self._runtime = runtime
         self._flow_key = flow_key
-        self._rejected_start_refresh = False
         self._attr_unique_id = flow_key
 
     @property
@@ -77,10 +71,7 @@ class ClimateFlowSwitch(SwitchEntity):
     @property
     def extra_state_attributes(self) -> dict[str, object]:
         """Return current execution details."""
-        attributes = self._runtime.switch_attributes(self._flow_key)
-        if self._rejected_start_refresh:
-            attributes["_climate_flow_rejected_start"] = True
-        return attributes
+        return self._runtime.switch_attributes(self._flow_key)
 
     async def async_added_to_hass(self) -> None:
         """Subscribe to runtime state changes."""
@@ -94,26 +85,7 @@ class ClimateFlowSwitch(SwitchEntity):
 
     async def async_turn_on(self, **kwargs: object) -> None:
         """Start this saved flow."""
-        try:
-            await self._runtime.async_start_many((self._flow_key,), self._context)
-        except HomeAssistantError:
-
-            @callback
-            def publish_idle_state(_: datetime) -> None:
-                """Publish the rejected toggle after its service response."""
-                self._rejected_start_refresh = True
-                self.async_write_ha_state()
-
-                @callback
-                def clear_idle_state(_: datetime) -> None:
-                    """Remove the transient UI refresh marker."""
-                    self._rejected_start_refresh = False
-                    self.async_write_ha_state()
-
-                async_call_later(self.hass, 0.1, clear_idle_state)
-
-            async_call_later(self.hass, 0.1, publish_idle_state)
-            raise
+        await self._runtime.async_start_many((self._flow_key,), self._context)
 
     async def async_turn_off(self, **kwargs: object) -> None:
         """Cancel this saved flow."""

@@ -311,8 +311,8 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
                 fan_modes=(),
                 swing_modes=(),
                 preset_modes=(),
-                minimum_temperature=temperature_to_celsius(self.hass, 1),
-                maximum_temperature=temperature_to_celsius(self.hass, 99),
+                minimum_temperature=1,
+                maximum_temperature=99,
             )
         return vol.Schema(
             {
@@ -364,12 +364,8 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
         }
         temperature_selector = NumberSelector(
             NumberSelectorConfig(
-                min=temperature_from_celsius(
-                    self.hass, capabilities.minimum_temperature
-                ),
-                max=temperature_from_celsius(
-                    self.hass, capabilities.maximum_temperature
-                ),
+                min=capabilities.minimum_temperature,
+                max=capabilities.maximum_temperature,
                 step=0.1,
                 unit_of_measurement=self.hass.config.units.temperature_unit,
                 mode=NumberSelectorMode.BOX,
@@ -503,14 +499,13 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
         temperature: float | None = None
         if CONF_TEMPERATURE in user_input:
             temperature_input = float(user_input[CONF_TEMPERATURE])
-            temperature_celsius = temperature_to_celsius(self.hass, temperature_input)
             if not (
                 self._capabilities.minimum_temperature
-                <= temperature_celsius
+                <= temperature_input
                 <= self._capabilities.maximum_temperature
             ):
                 raise InvalidStageInputError(CONF_TEMPERATURE)
-            temperature = temperature_celsius
+            temperature = temperature_to_celsius(self.hass, temperature_input)
 
         hvac_mode = str(user_input[CONF_HVAC_MODE])
         if hvac_mode not in self._capabilities.hvac_modes:

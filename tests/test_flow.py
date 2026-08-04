@@ -16,6 +16,7 @@ from homeassistant.config_entries import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType, InvalidData, section
+from homeassistant.util.unit_system import US_CUSTOMARY_SYSTEM
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.climate_flow.config_flow import _duration_seconds
@@ -46,6 +47,8 @@ def _climate_attributes(
     fan_modes: list[str] | None = None,
     swing_modes: list[str] | None = None,
     preset_modes: list[str] | None = None,
+    minimum_temperature: float = 16,
+    maximum_temperature: float = 30,
 ) -> dict[str, object]:
     """Return a representative climate entity capability set."""
     return {
@@ -59,8 +62,8 @@ def _climate_attributes(
         ATTR_PRESET_MODES: preset_modes
         if preset_modes is not None
         else ["none", "eco"],
-        ATTR_MIN_TEMP: 16,
-        ATTR_MAX_TEMP: 30,
+        ATTR_MIN_TEMP: minimum_temperature,
+        ATTR_MAX_TEMP: maximum_temperature,
     }
 
 
@@ -236,6 +239,55 @@ async def test_create_saved_two_stage_flow(hass: HomeAssistant) -> None:
     assert len(subentry.data[CONF_STAGES]) == 2
     assert subentry.data[CONF_STAGES][0][CONF_DURATION] == 1800
     assert CONF_DURATION not in subentry.data[CONF_STAGES][1]
+
+
+async def test_flow_uses_home_assistant_temperature_units_for_capabilities(
+    hass: HomeAssistant,
+) -> None:
+    """Test Fahrenheit capability bounds remain Fahrenheit in the form."""
+    hass.config.units = US_CUSTOMARY_SYSTEM
+    _add_climate(
+        hass,
+        "climate.bedroom",
+        minimum_temperature=60.8,
+        maximum_temperature=86,
+    )
+    entry = MockConfigEntry(domain=DOMAIN, title="Climate Flow", data={})
+    entry.add_to_hass(hass)
+
+    result = await _start_flow(hass, entry)
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {CONF_NAME: "Bedroom Cooling", CONF_TARGETS: ["climate.bedroom"]},
+    )
+    sections = {
+        field.schema: value
+        for field, value in result["data_schema"].schema.items()
+        if isinstance(value, section)
+    }
+    stage_1_fields = {
+        field.schema: value
+        for field, value in sections["stage_1"].schema.schema.items()
+    }
+    assert stage_1_fields[CONF_TEMPERATURE].config["min"] == 60.8
+    assert stage_1_fields[CONF_TEMPERATURE].config["max"] == 86
+
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            "stage_1": {
+                **_stage_input("cool", duration={"minutes": 30}),
+                CONF_TEMPERATURE: 71.6,
+            },
+            "stage_2": _stage_input("off"),
+        },
+    )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    subentry = next(iter(entry.subentries.values()))
+    assert subentry.data[CONF_STAGES][0]["climate_state"][
+        CONF_TEMPERATURE_CELSIUS
+    ] == pytest.approx(22)
 
 
 async def test_flow_uses_name_derived_id_when_it_is_not_edited(

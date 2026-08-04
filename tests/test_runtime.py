@@ -1,5 +1,7 @@
 """Tests for Home Assistant execution of saved Climate Flow definitions."""
 
+import asyncio
+
 from homeassistant.components.climate.const import (
     ATTR_FAN_MODES,
     ATTR_HVAC_MODES,
@@ -136,6 +138,27 @@ async def test_runtime_applies_stage_two_and_completes_immediately(
     run = runtime.engine.active_run("flow")
 
     await runtime._async_advance_to_stage_two(run, None)
+
+    assert [call.data["hvac_mode"] for call in hvac_calls] == ["cool", "off"]
+    assert not runtime.is_active("flow")
+
+
+async def test_runtime_timer_advances_to_stage_two(hass: HomeAssistant) -> None:
+    """Test the scheduled Stage 1 timer advances on Home Assistant's event loop."""
+    _add_climate(hass, "climate.bedroom")
+    hvac_calls = async_mock_service(hass, "climate", SERVICE_SET_HVAC_MODE)
+    for service in (
+        SERVICE_SET_TEMPERATURE,
+        SERVICE_SET_PRESET_MODE,
+        SERVICE_SET_SWING_MODE,
+        SERVICE_SET_FAN_MODE,
+    ):
+        async_mock_service(hass, "climate", service)
+    runtime = _runtime(hass, duration=0.01)
+
+    await runtime.async_start_many(("flow",))
+    await asyncio.sleep(0.05)
+    await hass.async_block_till_done()
 
     assert [call.data["hvac_mode"] for call in hvac_calls] == ["cool", "off"]
     assert not runtime.is_active("flow")

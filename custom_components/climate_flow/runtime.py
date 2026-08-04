@@ -4,7 +4,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.components.climate.const import (
@@ -212,10 +212,16 @@ class ClimateFlowRuntime:
         await self._async_apply_stage(run, 0, context)
         if not self._is_current(run):
             return
+
+        @callback
+        def stage_one_complete(_: datetime) -> None:
+            """Advance the flow from Home Assistant's event loop."""
+            self._schedule_stage_two(run, context)
+
         self._timer_unsubs[run.flow_key] = async_call_later(
             self.hass,
             run.flow.stages[0].duration_seconds or 0,
-            lambda _: self._schedule_stage_two(run, context),
+            stage_one_complete,
         )
         self._notify(run.flow_key)
 

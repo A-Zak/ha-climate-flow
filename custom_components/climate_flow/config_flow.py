@@ -45,7 +45,13 @@ from .const import (
     DOMAIN,
     FLOW_SUBENTRY_TYPE,
 )
-from .flow import ClimateState, FlowStage, SavedFlow, is_valid_flow_id
+from .flow import (
+    ClimateState,
+    FlowStage,
+    SavedFlow,
+    is_legacy_flow_id,
+    is_valid_flow_id,
+)
 from .flow_capabilities import (
     InvalidClimateTargetsError,
     SharedClimateCapabilities,
@@ -182,7 +188,7 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
 
             name = str(identity[CONF_NAME]).strip()
             entered_flow_id = str(identity.get(CONF_FLOW_ID, "")).strip()
-            flow_id = entered_flow_id or slugify(name)
+            flow_id = entered_flow_id or slugify(name).replace("_", "-")
             targets = tuple(identity[CONF_TARGETS])
             errors = self._validate_details(name, flow_id, targets)
             if not errors:
@@ -399,7 +405,9 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
         errors: dict[str, str] = {}
         if not name:
             errors[CONF_NAME] = "invalid_name"
-        if not is_valid_flow_id(flow_id):
+        if not is_valid_flow_id(flow_id) and not self._is_unchanged_legacy_flow_id(
+            flow_id
+        ):
             errors[CONF_FLOW_ID] = "invalid_flow_id"
         elif any(
             subentry.unique_id == flow_id
@@ -410,6 +418,12 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
         if not targets:
             errors[CONF_TARGETS] = "no_targets"
         return errors
+
+    def _is_unchanged_legacy_flow_id(self, flow_id: str) -> bool:
+        """Allow an existing snake-case ID to be reconfigured without mutation."""
+        if self.source != SOURCE_RECONFIGURE or not is_legacy_flow_id(flow_id):
+            return False
+        return flow_id == self._get_reconfigure_subentry().unique_id
 
     def _reconfigured_subentry_id(self) -> str | None:
         """Return the subentry currently being updated, if any."""

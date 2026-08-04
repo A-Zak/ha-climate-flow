@@ -115,7 +115,7 @@ Possible properties may include:
 - Replacement or cancellation behavior.
 
 In Milestone 2, a flow definition targets one or more climate entities and
-contains exactly two ordered stages. The logical flow ID is lowercase snake
+contains exactly two ordered stages. The logical flow ID is lowercase kebab
 case and may be edited without changing the config subentry ID used for future
 runtime identity.
 

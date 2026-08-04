@@ -108,7 +108,7 @@ async def _create_two_stage_flow(
     entry: MockConfigEntry,
     *,
     name: str = "Bedroom Night Cooling",
-    flow_id: str = "bedroom_night_cooling",
+    flow_id: str = "bedroom-night-cooling",
     targets: list[str] | None = None,
 ) -> None:
     """Create a saved two-stage flow through its UI flow."""
@@ -124,19 +124,20 @@ async def _create_two_stage_flow(
 
 
 def test_flow_id_validation() -> None:
-    """Test the accepted lowercase snake-case logical IDs."""
-    assert is_valid_flow_id("bedroom_night_cooling")
-    assert is_valid_flow_id("flow_2")
-    assert not is_valid_flow_id("Bedroom_Night")
-    assert not is_valid_flow_id("bedroom__night")
-    assert not is_valid_flow_id("_bedroom")
-    assert not is_valid_flow_id("bedroom_")
+    """Test the accepted lowercase kebab-case logical IDs."""
+    assert is_valid_flow_id("bedroom-night-cooling")
+    assert is_valid_flow_id("flow-2")
+    assert not is_valid_flow_id("Bedroom-Night")
+    assert not is_valid_flow_id("bedroom_night")
+    assert not is_valid_flow_id("bedroom--night")
+    assert not is_valid_flow_id("-bedroom")
+    assert not is_valid_flow_id("bedroom-")
 
 
 def test_saved_flow_serializes_two_stages() -> None:
     """Test saved definitions use canonical temperatures and ordered stages."""
     flow = SavedFlow(
-        flow_id="bedroom_night",
+        flow_id="bedroom-night",
         targets=("climate.bedroom",),
         stages=(
             FlowStage(ClimateState(hvac_mode="cool", temperature_celsius=22.5), 1800),
@@ -146,7 +147,7 @@ def test_saved_flow_serializes_two_stages() -> None:
 
     data = flow.as_dict()
 
-    assert data[CONF_FLOW_ID] == "bedroom_night"
+    assert data[CONF_FLOW_ID] == "bedroom-night"
     assert data[CONF_TARGETS] == ["climate.bedroom"]
     assert data[CONF_STAGES][0]["climate_state"][CONF_TEMPERATURE_CELSIUS] == 22.5
     assert data[CONF_STAGES][0][CONF_DURATION] == 1800
@@ -195,7 +196,7 @@ async def test_create_saved_two_stage_flow(hass: HomeAssistant) -> None:
             result["flow_id"],
             _flow_input(
                 "Bedroom Night Cooling",
-                "bedroom_cooling",
+                "bedroom-cooling",
                 ["climate.bedroom"],
                 stage_1_duration={},
             ),
@@ -203,15 +204,15 @@ async def test_create_saved_two_stage_flow(hass: HomeAssistant) -> None:
 
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"],
-        _flow_input("Bedroom Night Cooling", "bedroom_cooling", ["climate.bedroom"]),
+        _flow_input("Bedroom Night Cooling", "bedroom-cooling", ["climate.bedroom"]),
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
 
     subentry = next(iter(entry.subentries.values()))
     assert subentry.title == "Bedroom Night Cooling"
-    assert subentry.unique_id == "bedroom_cooling"
-    assert subentry.data[CONF_FLOW_ID] == "bedroom_cooling"
+    assert subentry.unique_id == "bedroom-cooling"
+    assert subentry.data[CONF_FLOW_ID] == "bedroom-cooling"
     assert len(subentry.data[CONF_STAGES]) == 2
     assert subentry.data[CONF_STAGES][0][CONF_DURATION] == 1800
     assert CONF_DURATION not in subentry.data[CONF_STAGES][1]
@@ -234,7 +235,7 @@ async def test_flow_uses_name_derived_id_when_it_is_not_edited(
     await hass.async_block_till_done()
 
     subentry = next(iter(entry.subentries.values()))
-    assert subentry.unique_id == "bedroom_night_cooling"
+    assert subentry.unique_id == "bedroom-night-cooling"
 
 
 async def test_saved_flow_rejects_duplicate_id_and_empty_targets(
@@ -249,7 +250,7 @@ async def test_saved_flow_rejects_duplicate_id_and_empty_targets(
     result = await _start_flow(hass, entry)
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"],
-        _flow_input("Duplicate", "bedroom_night_cooling", ["climate.bedroom"]),
+        _flow_input("Duplicate", "bedroom-night-cooling", ["climate.bedroom"]),
     )
     assert result["errors"][CONF_FLOW_ID] == "duplicate_flow_id"
 
@@ -294,14 +295,14 @@ async def test_saved_flows_are_independent_subentries_and_can_be_removed(
         hass,
         entry,
         name="Bedroom Night Cooling",
-        flow_id="bedroom_night_cooling",
+        flow_id="bedroom-night-cooling",
         targets=["climate.bedroom"],
     )
     await _create_two_stage_flow(
         hass,
         entry,
         name="Office Night Cooling",
-        flow_id="office_night_cooling",
+        flow_id="office-night-cooling",
         targets=["climate.office"],
     )
 
@@ -309,11 +310,11 @@ async def test_saved_flows_are_independent_subentries_and_can_be_removed(
     bedroom = next(
         subentry
         for subentry in entry.subentries.values()
-        if subentry.unique_id == "bedroom_night_cooling"
+        if subentry.unique_id == "bedroom-night-cooling"
     )
     assert hass.config_entries.async_remove_subentry(entry, bedroom.subentry_id)
     assert len(entry.subentries) == 1
-    assert next(iter(entry.subentries.values())).unique_id == "office_night_cooling"
+    assert next(iter(entry.subentries.values())).unique_id == "office-night-cooling"
 
 
 async def test_reconfigure_name_preserves_subentry_identity_and_flow_id(
@@ -338,7 +339,7 @@ async def test_reconfigure_name_preserves_subentry_identity_and_flow_id(
         result["flow_id"],
         _flow_input(
             "Bedroom Evening Cooling",
-            "bedroom_night_cooling",
+            "bedroom-night-cooling",
             ["climate.bedroom"],
             stage_1_duration={"minutes": 20},
         ),
@@ -351,4 +352,4 @@ async def test_reconfigure_name_preserves_subentry_identity_and_flow_id(
     updated = entry.subentries[subentry.subentry_id]
     assert updated.subentry_id == subentry.subentry_id
     assert updated.title == "Bedroom Evening Cooling"
-    assert updated.unique_id == "bedroom_night_cooling"
+    assert updated.unique_id == "bedroom-night-cooling"

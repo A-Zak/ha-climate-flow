@@ -18,7 +18,7 @@
                 },
                 "details": {
                     "title": "Configure flow",
-                    "description": "Configure the two climate states. A blank flow ID is generated from the flow name.",
+                    "description": "Configure the two climate states. A blank flow ID is generated as lowercase kebab-case from the flow name.",
                     "sections": {
                         "flow": {
                             "name": "Flow",
@@ -62,7 +62,7 @@
             "error": {
                 "duplicate_flow_id": "This flow ID is already in use.",
                 "invalid_duration": "Enter a duration greater than zero.",
-                "invalid_flow_id": "Use lowercase letters, numbers, and single underscores only.",
+                "invalid_flow_id": "Use lowercase letters, numbers, and single hyphens only.",
                 "invalid_name": "Enter a flow name.",
                 "invalid_stage": "Choose a value supported by every selected climate target.",
                 "invalid_targets": "Select existing climate entities with compatible temperature ranges.",

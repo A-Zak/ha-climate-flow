@@ -37,14 +37,14 @@ Each saved flow has three distinct identity values:
 - `flow_id` is the user-facing logical identifier stored with the flow.
 - The Home Assistant config subentry ID is the stable internal identity.
 
-When a flow ID is left blank, the flow name is converted to lowercase snake
+When a flow ID is left blank, the flow name is converted to lowercase kebab
 case before saving. Users may enter a flow ID explicitly in the same form.
 
 A flow ID must:
 
-- Contain only lowercase letters, numbers, and single underscores.
-- Not begin or end with an underscore.
-- Not contain consecutive underscores.
+- Contain only lowercase letters, numbers, and single hyphens.
+- Not begin or end with a hyphen.
+- Not contain consecutive hyphens.
 - Be unique within the Climate Flow config entry.
 
 If conversion produces an empty or duplicate ID, the form remains open and
@@ -119,7 +119,7 @@ schema replacement when arbitrary stage counts are introduced later.
 ## Automated tests
 
 - Create a flow subentry through the UI flow.
-- Generate a lowercase snake-case flow ID from a display name.
+- Generate a lowercase kebab-case flow ID from a display name.
 - Allow the generated ID to be edited.
 - Reject malformed, empty, and duplicate IDs.
 - Preserve an existing ID when only the display name changes.
@@ -150,7 +150,7 @@ logger:
 1. Install the Milestone 2 build and restart Home Assistant.
 2. Open Settings > Devices & services > Climate Flow.
 3. Add a flow named `Bedroom Night Cooling` and confirm the suggested ID is
-   `bedroom_night_cooling`.
+   `bedroom-night-cooling`.
 4. Edit the suggested ID before saving and confirm the edited value persists.
 5. Select multiple climate targets and configure Stage 1 and Stage 2.
 6. Confirm Stage 1 requires a duration and Stage 2 permits no duration.

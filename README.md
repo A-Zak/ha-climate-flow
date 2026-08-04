@@ -24,7 +24,7 @@ then install Climate Flow and restart Home Assistant.
 In Home Assistant, open **Settings > Devices & services**, select
 **Add integration**, and choose **Climate Flow**. Only one Climate Flow config
 entry is supported. After creating it, add a saved flow from the Climate Flow
-integration page. A flow name produces an editable lowercase snake-case flow
+integration page. A flow name produces an editable lowercase kebab-case flow
 ID, while Home Assistant keeps a separate stable internal identity.
 
 ## Development

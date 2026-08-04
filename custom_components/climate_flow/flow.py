@@ -17,12 +17,18 @@ from .const import (
     FLOW_SCHEMA_VERSION,
 )
 
-FLOW_ID_PATTERN = re.compile(r"^[a-z0-9]+(?:_[a-z0-9]+)*$")
+FLOW_ID_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+LEGACY_FLOW_ID_PATTERN = re.compile(r"^[a-z0-9]+(?:_[a-z0-9]+)*$")
 
 
 def is_valid_flow_id(flow_id: str) -> bool:
-    """Return whether a logical flow ID is lower snake case."""
+    """Return whether a logical flow ID is lower kebab case."""
     return bool(FLOW_ID_PATTERN.fullmatch(flow_id))
+
+
+def is_legacy_flow_id(flow_id: str) -> bool:
+    """Return whether a pre-kebab-case flow ID uses the legacy format."""
+    return bool(LEGACY_FLOW_ID_PATTERN.fullmatch(flow_id))
 
 
 @dataclass(frozen=True, slots=True)

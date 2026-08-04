@@ -133,6 +133,19 @@ schema replacement when arbitrary stage counts are introduced later.
 
 ## Manual smoke test
 
+Temporarily enable detailed logging on the test Home Assistant instance:
+
+```yaml
+logger:
+  default: info
+  logs:
+    custom_components.climate_flow: debug
+    homeassistant.components.config: debug
+    homeassistant.config_entries: debug
+    homeassistant.loader: debug
+    homeassistant.setup: debug
+```
+
 1. Install the Milestone 2 build and restart Home Assistant.
 2. Open Settings > Devices & services > Climate Flow.
 3. Add a flow named `Bedroom Night Cooling` and confirm the suggested ID is

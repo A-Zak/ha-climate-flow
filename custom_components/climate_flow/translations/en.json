@@ -25,8 +25,14 @@
                             "description": "Choose the flow identity and climate targets.",
                             "data": {
                                 "name": "Flow name",
-                                "flow_id": "Flow ID",
                                 "targets": "Climate targets"
+                            }
+                        },
+                        "advanced": {
+                            "name": "Advanced",
+                            "description": "Change the generated flow ID only when needed.",
+                            "data": {
+                                "flow_id": "Flow ID"
                             }
                         },
                         "stage_1": {

@@ -15,7 +15,7 @@ from homeassistant.config_entries import (
     SubentryFlowContext,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.data_entry_flow import FlowResultType, InvalidData
+from homeassistant.data_entry_flow import FlowResultType, InvalidData, section
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.climate_flow.config_flow import _duration_seconds
@@ -86,7 +86,8 @@ def _flow_input(
 ) -> dict[str, object]:
     """Return a complete submission for the sectioned saved-flow form."""
     return {
-        "flow": {"name": name, CONF_FLOW_ID: flow_id, CONF_TARGETS: targets},
+        "flow": {"name": name, CONF_TARGETS: targets},
+        "advanced": {CONF_FLOW_ID: flow_id},
         "stage_1": _stage_input(
             "cool",
             duration={"minutes": 30} if stage_1_duration is None else stage_1_duration,
@@ -190,6 +191,16 @@ async def test_create_saved_two_stage_flow(hass: HomeAssistant) -> None:
     result = await _start_flow(hass, entry)
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "details"
+    sections = {
+        field.schema: value
+        for field, value in result["data_schema"].schema.items()
+        if isinstance(value, section)
+    }
+    assert sections["advanced"].options["collapsed"] is True
+    assert sections["stage_2"].options["collapsed"] is False
+    assert all(
+        field.schema != CONF_DURATION for field in sections["stage_2"].schema.schema
+    )
 
     with pytest.raises(InvalidData, match="duration"):
         await hass.config_entries.subentries.async_configure(

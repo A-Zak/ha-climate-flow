@@ -38,7 +38,8 @@ Each saved flow has three distinct identity values:
 - The Home Assistant config subentry ID is the stable internal identity.
 
 When a flow ID is left blank, the flow name is converted to lowercase kebab
-case before saving. Users may enter a flow ID explicitly in the same form.
+case before saving. The ID is normally hidden in the form's collapsed Advanced
+section; users may expand it to enter a flow ID explicitly.
 
 A flow ID must:
 

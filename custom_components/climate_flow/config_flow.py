@@ -178,16 +178,17 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
         """Collect and validate the complete saved flow definition."""
         if user_input is not None:
             identity = user_input["flow"]
+            advanced = user_input["advanced"]
             stage_1_input = user_input["stage_1"]
             stage_2_input = user_input["stage_2"]
             if not all(
                 isinstance(value, Mapping)
-                for value in (identity, stage_1_input, stage_2_input)
+                for value in (identity, advanced, stage_1_input, stage_2_input)
             ):
                 return self._show_details(errors={"base": "invalid_stage"})
 
             name = str(identity[CONF_NAME]).strip()
-            entered_flow_id = str(identity.get(CONF_FLOW_ID, "")).strip()
+            entered_flow_id = str(advanced.get(CONF_FLOW_ID, "")).strip()
             flow_id = entered_flow_id or slugify(name).replace("_", "-")
             targets = tuple(identity[CONF_TARGETS])
             errors = self._validate_details(name, flow_id, targets)
@@ -274,15 +275,20 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
         identity = vol.Schema(
             {
                 vol.Required(CONF_NAME, default=self._name): TextSelector(),
-                vol.Optional(CONF_FLOW_ID, default=self._flow_id): TextSelector(),
                 vol.Required(CONF_TARGETS, default=list(self._targets)): EntitySelector(
                     EntitySelectorConfig(filter={"domain": "climate"}, multiple=True)
                 ),
             }
         )
+        advanced = vol.Schema(
+            {
+                vol.Optional(CONF_FLOW_ID, default=self._flow_id): TextSelector(),
+            }
+        )
         return vol.Schema(
             {
                 vol.Required("flow"): section(identity, {"collapsed": False}),
+                vol.Required("advanced"): section(advanced, {"collapsed": True}),
                 vol.Required("stage_1"): section(
                     self._stage_schema(
                         1, duration_required=True, capabilities=capabilities
@@ -293,7 +299,7 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
                     self._stage_schema(
                         2, duration_required=False, capabilities=capabilities
                     ),
-                    {"collapsed": True},
+                    {"collapsed": False},
                 ),
             }
         )

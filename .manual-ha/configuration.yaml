@@ -35,24 +35,24 @@ climate:
     target_sensor: input_number.test_temperature
     ac_mode: true
     initial_hvac_mode: cool
-    min_temp: 16
-    max_temp: 30
+    min_temp: 60.8
+    max_temp: 86
   - platform: generic_thermostat
     name: Test Climate Office
     heater: input_boolean.test_heater_office
     target_sensor: input_number.test_temperature_office
     ac_mode: true
     initial_hvac_mode: cool
-    min_temp: 16
-    max_temp: 30
+    min_temp: 60.8
+    max_temp: 86
   - platform: generic_thermostat
     name: Test Climate Lounge
     heater: input_boolean.test_heater_lounge
     target_sensor: input_number.test_temperature_lounge
     ac_mode: true
     initial_hvac_mode: cool
-    min_temp: 16
-    max_temp: 30
+    min_temp: 60.8
+    max_temp: 86
 
 http:
   server_host: 127.0.0.1

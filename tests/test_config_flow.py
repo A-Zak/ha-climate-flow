@@ -3,9 +3,19 @@
 from homeassistant.config_entries import SOURCE_USER
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.loader import async_get_integration
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.climate_flow.const import DOMAIN
+
+
+async def test_manifest_classifies_integration_as_service(
+    hass: HomeAssistant,
+) -> None:
+    """Test Climate Flow is shown as a normal service integration."""
+    integration = await async_get_integration(hass, DOMAIN)
+
+    assert integration.manifest["integration_type"] == "service"
 
 
 async def test_user_flow(hass: HomeAssistant) -> None:

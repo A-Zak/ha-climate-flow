@@ -21,8 +21,9 @@ Integration location:
 - Never deploy automatically to a Home Assistant instance.
 - Never hardcode personal entity IDs, IP addresses, credentials, or
   manufacturer-specific configuration.
-- Do not push commits, publish releases, or run destructive Git commands
-  unless explicitly requested.
+- Commit completed work with a meaningful, scoped commit message.
+- Do not push commits, publish releases, deploy, or run destructive Git
+  commands unless explicitly requested.
 - Ask before adding a runtime dependency.
 
 ## Sources of truth
@@ -65,6 +66,10 @@ conflict before implementing.
 - Run the available checks after making changes.
 
 ## Workflow
+
+Small, scoped, reversible changes that directly implement the current task do
+not require a separate approval pause. Ask before broad, destructive,
+externally visible, or architecturally significant changes.
 
 Before editing:
 

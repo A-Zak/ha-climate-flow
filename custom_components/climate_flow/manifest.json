@@ -4,7 +4,7 @@
   "codeowners": ["@A-Zak"],
   "config_flow": true,
   "documentation": "https://github.com/A-Zak/ha-climate-flow",
-  "integration_type": "helper",
+  "integration_type": "service",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/A-Zak/ha-climate-flow/issues",
   "requirements": [],

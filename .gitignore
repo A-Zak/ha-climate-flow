@@ -11,7 +11,13 @@ dist/
 .ruff_cache/
 .coverage
 htmlcov/
-.manual-ha/
+
+# Track the reusable manual Home Assistant fixture, not its generated state.
+.manual-ha/*
+!.manual-ha/configuration.yaml
+!.manual-ha/requirements.txt
+!.manual-ha/custom_components/
+!.manual-ha/custom_components/climate_flow
 
 # Environment and secrets
 .env

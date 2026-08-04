@@ -1,0 +1,36 @@
+frontend:
+
+input_boolean:
+  test_heater:
+    name: Test heater
+
+input_number:
+  test_temperature:
+    name: Test temperature
+    min: 10
+    max: 40
+    step: 0.5
+    initial: 22
+
+climate:
+  - platform: generic_thermostat
+    name: Test Climate
+    heater: input_boolean.test_heater
+    target_sensor: input_number.test_temperature
+    ac_mode: true
+    initial_hvac_mode: cool
+    min_temp: 16
+    max_temp: 30
+
+http:
+  server_host: 127.0.0.1
+  server_port: 8124
+
+logger:
+  default: info
+  logs:
+    custom_components.climate_flow: debug
+    homeassistant.components.config: debug
+    homeassistant.config_entries: debug
+    homeassistant.loader: debug
+    homeassistant.setup: debug

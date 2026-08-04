@@ -1,0 +1,10 @@
+# Runtime packages omitted by pytest-homeassistant-custom-component but needed
+# to run the local Home Assistant browser UI used by this smoke-test fixture.
+colorlog==6.10.1
+hassil==3.8.0
+home-assistant-frontend==20260624.5
+home-assistant-intents==2026.6.24
+mutagen==1.47.0
+PyQRCode==1.2.1
+PyTurboJPEG==1.8.3
+pyotp==2.9.0

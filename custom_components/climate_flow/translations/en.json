@@ -9,7 +9,7 @@
     },
     "config_subentries": {
         "flow": {
-            "title": "Add climate flow",
+            "entry_type": "Climate flow",
             "step": {
                 "user": {
                     "title": "Choose climate targets",

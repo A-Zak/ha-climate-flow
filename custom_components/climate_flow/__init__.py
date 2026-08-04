@@ -7,6 +7,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import service
 from homeassistant.helpers.typing import ConfigType
 
@@ -19,6 +20,8 @@ PLATFORMS = (Platform.SWITCH,)
 SERVICE_START = "start"
 SERVICE_CANCEL = "cancel"
 _LOGGER = logging.getLogger(__name__)
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:

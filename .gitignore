@@ -11,6 +11,7 @@ dist/
 .ruff_cache/
 .coverage
 htmlcov/
+.manual-ha/
 
 # Environment and secrets
 .env

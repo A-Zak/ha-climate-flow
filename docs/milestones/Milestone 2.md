@@ -62,10 +62,13 @@ stable identity so that user-facing changes do not break automations.
 A flow must target at least one entity from the `climate` domain. All stages
 apply the same configured state to every selected target.
 
-The editor determines the capabilities shared by all selected targets and
-only offers common HVAC, fan, swing, and preset values. Temperature input is
-limited to the common supported range. Saved data is validated again when the
-form is submitted.
+Creating or editing a flow first selects its climate targets, then presents a
+second form for the flow name and two stages. The editor determines the
+capabilities shared by the selected targets before it renders the stage
+controls, so it only offers common HVAC, fan, swing, and preset values. It
+also shows the common minimum and maximum target temperature in Home
+Assistant's configured temperature unit. Saved data is validated again when
+the form is submitted.
 
 Temperatures are stored canonically in Celsius and converted at the Home
 Assistant UI boundary. Durations are stored as positive seconds.

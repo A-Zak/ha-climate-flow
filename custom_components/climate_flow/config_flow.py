@@ -15,7 +15,7 @@ from homeassistant.config_entries import (
     SubentryFlowContext,
     SubentryFlowResult,
 )
-from homeassistant.core import callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers.selector import (
     DurationSelector,
@@ -27,6 +27,7 @@ from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
     TextSelector,
+    TextSelectorConfig,
 )
 from homeassistant.util import slugify
 
@@ -94,6 +95,15 @@ def _duration_suggestion(seconds: float | None) -> dict[str, float] | None:
     return suggestion
 
 
+def _temperature_range_label(
+    hass: HomeAssistant, capabilities: SharedClimateCapabilities
+) -> str:
+    """Return the common target temperature range in Home Assistant's unit."""
+    minimum = temperature_from_celsius(hass, capabilities.minimum_temperature)
+    maximum = temperature_from_celsius(hass, capabilities.maximum_temperature)
+    return f"{minimum:g} - {maximum:g}"
+
+
 class InvalidStageInputError(ValueError):
     """Raised when a stage form value is not valid for its selected targets."""
 
@@ -150,19 +160,21 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
     async def async_step_user(
         self, user_input: dict[str, object] | None = None
     ) -> SubentryFlowResult:
-        """Create a saved flow in one sectioned form."""
+        """Select targets before rendering their compatible controls."""
         self._name = ""
         self._flow_id = ""
         self._targets = ()
         self._stages = []
-        return await self.async_step_details(user_input)
+        if user_input is not None:
+            return self._select_targets(user_input, step_id="user")
+        return self._show_targets(step_id="user")
 
     async def async_step_reconfigure(
         self, user_input: dict[str, object] | None = None
     ) -> SubentryFlowResult:
         """Load a saved flow before collecting its replacement definition."""
         if user_input is not None:
-            raise ValueError("Reconfigure input is handled by the details step")
+            return self._select_targets(user_input, step_id="reconfigure")
 
         subentry = self._get_reconfigure_subentry()
         data = subentry.data
@@ -170,7 +182,7 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
         self._flow_id = str(data[CONF_FLOW_ID])
         self._targets = tuple(data[CONF_TARGETS])
         self._stages = self._stages_from_data(data)
-        return await self.async_step_details()
+        return self._show_targets(step_id="reconfigure")
 
     async def async_step_details(
         self, user_input: dict[str, object] | None = None
@@ -190,7 +202,7 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
             name = str(identity[CONF_NAME]).strip()
             entered_flow_id = str(advanced.get(CONF_FLOW_ID, "")).strip()
             flow_id = entered_flow_id or slugify(name).replace("_", "-")
-            targets = tuple(identity[CONF_TARGETS])
+            targets = self._targets
             errors = self._validate_details(name, flow_id, targets)
             if not errors:
                 try:
@@ -252,6 +264,39 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
             step_id="details", data_schema=self._details_schema(), errors=errors
         )
 
+    def _select_targets(
+        self, user_input: dict[str, object], *, step_id: str
+    ) -> SubentryFlowResult:
+        """Validate selected targets before rendering compatible controls."""
+        targets = tuple(user_input[CONF_TARGETS])
+        if not targets:
+            return self._show_targets(
+                step_id=step_id, errors={CONF_TARGETS: "no_targets"}
+            )
+        try:
+            capabilities = shared_capabilities(self.hass, targets)
+        except InvalidClimateTargetsError:
+            return self._show_targets(
+                step_id=step_id, errors={"base": "invalid_targets"}
+            )
+        if not capabilities.hvac_modes:
+            return self._show_targets(
+                step_id=step_id, errors={"base": "unsupported_targets"}
+            )
+        self._targets = targets
+        self._capabilities = capabilities
+        return self._show_details()
+
+    def _show_targets(
+        self, *, step_id: str, errors: dict[str, str] | None = None
+    ) -> SubentryFlowResult:
+        """Show target selection with the current targets as suggestions."""
+        return self.async_show_form(
+            step_id=step_id,
+            data_schema=self._targets_schema(),
+            errors=errors,
+        )
+
     def _details_schema(self) -> vol.Schema:
         """Return the sectioned one-page schema for a saved flow."""
         capabilities = getattr(self, "_capabilities", None)
@@ -275,9 +320,6 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
         identity = vol.Schema(
             {
                 vol.Required(CONF_NAME, default=self._name): TextSelector(),
-                vol.Required(CONF_TARGETS, default=list(self._targets)): EntitySelector(
-                    EntitySelectorConfig(filter={"domain": "climate"}, multiple=True)
-                ),
             }
         )
         advanced = vol.Schema(
@@ -288,7 +330,6 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
         return vol.Schema(
             {
                 vol.Required("flow"): section(identity, {"collapsed": False}),
-                vol.Required("advanced"): section(advanced, {"collapsed": True}),
                 vol.Required("stage_1"): section(
                     self._stage_schema(
                         1, duration_required=True, capabilities=capabilities
@@ -301,6 +342,17 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
                     ),
                     {"collapsed": False},
                 ),
+                vol.Required("advanced"): section(advanced, {"collapsed": True}),
+            }
+        )
+
+    def _targets_schema(self) -> vol.Schema:
+        """Return the preliminary target selection schema."""
+        return vol.Schema(
+            {
+                vol.Required(CONF_TARGETS, default=list(self._targets)): EntitySelector(
+                    EntitySelectorConfig(filter={"domain": "climate"}, multiple=True)
+                )
             }
         )
 
@@ -349,6 +401,17 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
                 required=False,
             )
         ] = temperature_selector
+        schema[
+            vol.Optional(
+                "temperature_range",
+                default=_temperature_range_label(self.hass, capabilities),
+            )
+        ] = TextSelector(
+            TextSelectorConfig(
+                read_only=True,
+                suffix=self.hass.config.units.temperature_unit,
+            )
+        )
         self._add_optional_mode(
             schema,
             CONF_FAN_MODE,

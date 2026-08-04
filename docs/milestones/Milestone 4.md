@@ -26,6 +26,11 @@ experience. It provides clearly labeled controls to create, edit, and remove
 flows, including an **Add flow** button, and presents the saved-flow list and
 its generalized stage editor in one place.
 
+The panel updates stage controls immediately as the selected climate targets
+change. It recomputes the common HVAC, fan, swing, and preset options and the
+minimum and maximum target-temperature range in place, before the user saves
+the flow.
+
 The panel continues to use native Home Assistant config subentries as the
 stored flow definitions. The existing Integrations-page subentry UI remains
 available as a compatible fallback, but Climate Flow documentation directs

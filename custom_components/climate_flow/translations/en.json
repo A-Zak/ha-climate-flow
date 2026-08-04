@@ -12,9 +12,9 @@
             "title": "Add climate flow",
             "step": {
                 "user": {
-                    "title": "Create a climate flow",
-                    "description": "Choose a name to generate an initial flow ID.",
-                    "data": {"name": "Flow name"}
+                    "title": "Choose climate targets",
+                    "description": "Choose the climate entities this flow will coordinate. The next form shows only controls they all support.",
+                    "data": {"targets": "Climate targets"}
                 },
                 "details": {
                     "title": "Configure flow",
@@ -22,10 +22,9 @@
                     "sections": {
                         "flow": {
                             "name": "Flow",
-                            "description": "Choose the flow identity and climate targets.",
+                            "description": "Choose a name for this flow.",
                             "data": {
-                                "name": "Flow name",
-                                "targets": "Climate targets"
+                                "name": "Flow name"
                             }
                         },
                         "advanced": {
@@ -41,6 +40,7 @@
                             "data": {
                                 "hvac_mode": "HVAC mode",
                                 "temperature": "Target temperature",
+                                "temperature_range": "Supported temperature range",
                                 "fan_mode": "Fan mode",
                                 "swing_mode": "Swing mode",
                                 "preset_mode": "Preset mode",
@@ -53,6 +53,7 @@
                             "data": {
                                 "hvac_mode": "HVAC mode",
                                 "temperature": "Target temperature",
+                                "temperature_range": "Supported temperature range",
                                 "fan_mode": "Fan mode",
                                 "swing_mode": "Swing mode",
                                 "preset_mode": "Preset mode"
@@ -62,7 +63,8 @@
                 },
                 "reconfigure": {
                     "title": "Update climate flow",
-                    "description": "Update the saved two-stage flow definition."
+                    "description": "Choose the climate entities this flow will coordinate. The next form shows only controls they all support.",
+                    "data": {"targets": "Climate targets"}
                 }
             },
             "error": {

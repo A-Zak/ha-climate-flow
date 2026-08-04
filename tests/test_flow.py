@@ -86,7 +86,7 @@ def _flow_input(
 ) -> dict[str, object]:
     """Return a complete submission for the sectioned saved-flow form."""
     return {
-        "flow": {"name": name, CONF_TARGETS: targets},
+        "flow": {"name": name},
         "advanced": {CONF_FLOW_ID: flow_id},
         "stage_1": _stage_input(
             "cool",
@@ -116,6 +116,9 @@ async def _create_two_stage_flow(
     if targets is None:
         targets = ["climate.bedroom"]
     result = await _start_flow(hass, entry)
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {CONF_TARGETS: targets}
+    )
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"], _flow_input(name, flow_id, targets)
     )
@@ -190,14 +193,34 @@ async def test_create_saved_two_stage_flow(hass: HomeAssistant) -> None:
 
     result = await _start_flow(hass, entry)
     assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "user"
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {CONF_TARGETS: ["climate.bedroom"]}
+    )
     assert result["step_id"] == "details"
     sections = {
         field.schema: value
         for field, value in result["data_schema"].schema.items()
         if isinstance(value, section)
     }
+    assert list(sections) == ["flow", "stage_1", "stage_2", "advanced"]
     assert sections["advanced"].options["collapsed"] is True
     assert sections["stage_2"].options["collapsed"] is False
+    stage_1_fields = {
+        field.schema: value
+        for field, value in sections["stage_1"].schema.schema.items()
+    }
+    assert [
+        option["value"] for option in stage_1_fields[CONF_HVAC_MODE].config["options"]
+    ] == ["cool", "heat", "off"]
+    assert stage_1_fields["temperature_range"].config["read_only"] is True
+    assert stage_1_fields["temperature_range"].config["suffix"] == "°C"
+    temperature_range_field = next(
+        field
+        for field in sections["stage_1"].schema.schema
+        if field.schema == "temperature_range"
+    )
+    assert temperature_range_field.default() == "16 - 30"
     assert all(
         field.schema != CONF_DURATION for field in sections["stage_2"].schema.schema
     )
@@ -239,6 +262,9 @@ async def test_flow_uses_name_derived_id_when_it_is_not_edited(
 
     result = await _start_flow(hass, entry)
     result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {CONF_TARGETS: ["climate.bedroom"]}
+    )
+    result = await hass.config_entries.subentries.async_configure(
         result["flow_id"],
         _flow_input("Bedroom Night Cooling", "", ["climate.bedroom"]),
     )
@@ -260,16 +286,19 @@ async def test_saved_flow_rejects_duplicate_id_and_empty_targets(
 
     result = await _start_flow(hass, entry)
     result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {CONF_TARGETS: ["climate.bedroom"]}
+    )
+    result = await hass.config_entries.subentries.async_configure(
         result["flow_id"],
         _flow_input("Duplicate", "bedroom-night-cooling", ["climate.bedroom"]),
     )
     assert result["errors"][CONF_FLOW_ID] == "duplicate_flow_id"
 
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"],
-        _flow_input("Duplicate", "duplicate", []),
+    empty_targets_result = await _start_flow(hass, entry)
+    empty_targets_result = await hass.config_entries.subentries.async_configure(
+        empty_targets_result["flow_id"], {CONF_TARGETS: []}
     )
-    assert result["errors"][CONF_TARGETS] == "no_targets"
+    assert empty_targets_result["errors"][CONF_TARGETS] == "no_targets"
 
 
 async def test_saved_flow_rejects_targets_without_a_shared_hvac_mode(
@@ -283,13 +312,10 @@ async def test_saved_flow_rejects_targets_without_a_shared_hvac_mode(
 
     result = await _start_flow(hass, entry)
     result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"],
-        _flow_input(
-            "Incompatible", "incompatible", ["climate.bedroom", "climate.office"]
-        ),
+        result["flow_id"], {CONF_TARGETS: ["climate.bedroom", "climate.office"]}
     )
 
-    assert result["step_id"] == "details"
+    assert result["step_id"] == "user"
     assert result["errors"]["base"] == "unsupported_targets"
 
 
@@ -343,6 +369,11 @@ async def test_reconfigure_name_preserves_subentry_identity_and_flow_id(
         context=SubentryFlowContext(
             source=SOURCE_RECONFIGURE, subentry_id=subentry.subentry_id
         ),
+    )
+    assert result["step_id"] == "reconfigure"
+
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {CONF_TARGETS: ["climate.bedroom"]}
     )
     assert result["step_id"] == "details"
 

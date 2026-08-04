@@ -10,6 +10,9 @@
     "config_subentries": {
         "flow": {
             "entry_type": "Climate flow",
+            "initiate_flow": {
+                "user": "Add climate flow"
+            },
             "step": {
                 "user": {
                     "title": "Choose climate targets",

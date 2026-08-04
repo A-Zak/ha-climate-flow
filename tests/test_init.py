@@ -29,6 +29,7 @@ def test_flow_subentry_translation_uses_current_schema() -> None:
     flow = translations["config_subentries"]["flow"]
 
     assert flow["entry_type"] == "Climate flow"
+    assert flow["initiate_flow"]["user"] == "Add climate flow"
     assert "title" not in flow
 
 

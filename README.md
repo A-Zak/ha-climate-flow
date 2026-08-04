@@ -38,6 +38,33 @@ python -m ruff check .
 python -m pytest -v --cov=custom_components.climate_flow --cov-report=term-missing
 ```
 
+## Manual Home Assistant smoke test
+
+The tracked [`.manual-ha`](.manual-ha) fixture starts a disposable local Home
+Assistant UI on `http://127.0.0.1:8124`. It never accesses a live Home
+Assistant instance on port 8123. Its `custom_components/climate_flow` symlink
+points to this repository's integration source, so restart the local server
+after changing integration code.
+
+After creating the development environment, install the browser-UI-only
+requirements and start the fixture:
+
+```sh
+.venv/bin/pip install -r .manual-ha/requirements.txt
+.venv/bin/hass -c .manual-ha
+```
+
+On first use, create a throwaway local account at
+`http://127.0.0.1:8124`. The fixture provides `climate.test_climate`, a local
+generic thermostat backed by helper entities. Use it to create, edit, and
+remove Climate Flow definitions without controlling a real device.
+
+Home Assistant writes its database, auth data, logs, and other runtime state
+under `.manual-ha`; those files are intentionally ignored. To restart manual
+onboarding from scratch, stop the local server and remove only
+`.manual-ha/.storage`, `.manual-ha/home-assistant.log`, and
+`.manual-ha/.HA_VERSION`.
+
 ## License
 
 Climate Flow is available under the [MIT License](LICENSE).

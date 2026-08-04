@@ -109,6 +109,5 @@ def temperature_from_celsius(hass: HomeAssistant, temperature: float) -> float:
 def selector_options(values: Iterable[str]) -> list[dict[str, str]]:
     """Return readable select-selector options for climate mode strings."""
     return [
-        {"value": value, "label": value.replace("_", " ").title()}
-        for value in values
+        {"value": value, "label": value.replace("_", " ").title()} for value in values
     ]

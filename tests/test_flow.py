@@ -1,5 +1,6 @@
 """Tests for saved Climate Flow definitions."""
 
+import pytest
 from homeassistant.components.climate.const import (
     ATTR_FAN_MODES,
     ATTR_HVAC_MODES,
@@ -14,7 +15,7 @@ from homeassistant.config_entries import (
     SubentryFlowContext,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.data_entry_flow import FlowResultType, InvalidData
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.climate_flow.config_flow import _duration_seconds
@@ -50,9 +51,7 @@ def _climate_attributes(
         ATTR_HVAC_MODES: hvac_modes
         if hvac_modes is not None
         else ["off", "cool", "heat"],
-        ATTR_FAN_MODES: fan_modes
-        if fan_modes is not None
-        else ["auto", "high"],
+        ATTR_FAN_MODES: fan_modes if fan_modes is not None else ["auto", "high"],
         ATTR_SWING_MODES: swing_modes
         if swing_modes is not None
         else ["off", "vertical"],
@@ -79,9 +78,7 @@ def _stage_input(
     return data
 
 
-async def _start_flow(
-    hass: HomeAssistant, entry: MockConfigEntry
-) -> dict[str, object]:
+async def _start_flow(hass: HomeAssistant, entry: MockConfigEntry) -> dict[str, object]:
     """Start a saved-flow subentry creation flow."""
     return await hass.config_entries.subentries.async_init(
         (entry.entry_id, FLOW_SUBENTRY_TYPE),
@@ -135,9 +132,7 @@ def test_saved_flow_serializes_two_stages() -> None:
         flow_id="bedroom_night",
         targets=("climate.bedroom",),
         stages=(
-            FlowStage(
-                ClimateState(hvac_mode="cool", temperature_celsius=22.5), 1800
-            ),
+            FlowStage(ClimateState(hvac_mode="cool", temperature_celsius=22.5), 1800),
             FlowStage(ClimateState(hvac_mode="off")),
         ),
     )
@@ -171,9 +166,7 @@ async def test_shared_capabilities_intersect_selected_targets(
     _add_climate(hass, "climate.bedroom", hvac_modes=["off", "cool", "heat"])
     _add_climate(hass, "climate.office", hvac_modes=["off", "cool"])
 
-    capabilities = shared_capabilities(
-        hass, ["climate.bedroom", "climate.office"]
-    )
+    capabilities = shared_capabilities(hass, ["climate.bedroom", "climate.office"])
 
     assert capabilities.hvac_modes == ("cool", "off")
     assert capabilities.minimum_temperature == 16
@@ -205,11 +198,10 @@ async def test_create_saved_two_stage_flow(hass: HomeAssistant) -> None:
     )
     assert result["step_id"] == "stage_1"
 
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], _stage_input("cool")
-    )
-    assert result["step_id"] == "stage_1"
-    assert result["errors"][CONF_DURATION] == "invalid_duration"
+    with pytest.raises(InvalidData, match="duration"):
+        await hass.config_entries.subentries.async_configure(
+            result["flow_id"], _stage_input("cool")
+        )
 
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"],
@@ -249,9 +241,7 @@ async def test_flow_uses_name_derived_id_when_it_is_not_edited(
         result["flow_id"], {"name": "Bedroom Night Cooling"}
     )
     flow_id_field = next(
-        field
-        for field in result["data_schema"].schema
-        if field.schema == CONF_FLOW_ID
+        field for field in result["data_schema"].schema if field.schema == CONF_FLOW_ID
     )
     suggested_flow_id = flow_id_field.default
     if callable(suggested_flow_id):

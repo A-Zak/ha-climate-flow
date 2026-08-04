@@ -1,7 +1,7 @@
 """Domain models for saved Climate Flow definitions."""
 
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
 
 from .const import (
     CONF_DURATION,

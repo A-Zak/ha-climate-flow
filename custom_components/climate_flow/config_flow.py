@@ -4,7 +4,6 @@ from collections.abc import Mapping
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant.config_entries import (
     SOURCE_RECONFIGURE,
     SOURCE_USER,
@@ -118,9 +117,7 @@ class ClimateFlowConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(step_id="user")
 
-    async def async_on_create_entry(
-        self, result: ConfigFlowResult
-    ) -> ConfigFlowResult:
+    async def async_on_create_entry(self, result: ConfigFlowResult) -> ConfigFlowResult:
         """Offer the user immediate creation of their first saved flow."""
         entry = result["result"]
         subentry_result = await self.hass.config_entries.subentries.async_init(
@@ -369,9 +366,7 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
         return vol.Schema(schema)
 
     @staticmethod
-    def _field(
-        key: str, suggested: Any, *, required: bool
-    ) -> Any:
+    def _field(key: str, suggested: Any, *, required: bool) -> Any:
         """Return a schema key with an optional suggested value."""
         if required:
             return (
@@ -410,9 +405,7 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
         elif any(
             subentry.unique_id == flow_id
             and subentry.subentry_id != self._reconfigured_subentry_id()
-            for subentry in self._get_entry().get_subentries_of_type(
-                FLOW_SUBENTRY_TYPE
-            )
+            for subentry in self._get_entry().get_subentries_of_type(FLOW_SUBENTRY_TYPE)
         ):
             errors[CONF_FLOW_ID] = "duplicate_flow_id"
         if not targets:
@@ -503,9 +496,7 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
                 FlowStage(
                     climate_state=ClimateState(
                         hvac_mode=stored_state[CONF_HVAC_MODE],
-                        temperature_celsius=stored_state.get(
-                            CONF_TEMPERATURE_CELSIUS
-                        ),
+                        temperature_celsius=stored_state.get(CONF_TEMPERATURE_CELSIUS),
                         fan_mode=stored_state.get(CONF_FAN_MODE),
                         swing_mode=stored_state.get(CONF_SWING_MODE),
                         preset_mode=stored_state.get(CONF_PRESET_MODE),

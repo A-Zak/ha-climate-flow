@@ -78,6 +78,19 @@ Before editing:
 3. Identify assumptions or ambiguities.
 4. Make the smallest coherent change.
 
+## Test-driven development
+
+For behavior changes, practice test-driven development:
+
+1. Write or update the relevant automated test first, so it describes the
+   intended behavior and fails before the implementation changes.
+2. Implement the smallest change that makes the new test pass.
+3. Refactor only while the complete test suite remains green.
+
+Do not begin implementation before the relevant tests have been written or
+updated, except for documentation-only changes or when a test is genuinely
+impossible to automate; state and justify that exception in the final report.
+
 After editing:
 
 1. Run formatting, linting, and tests.

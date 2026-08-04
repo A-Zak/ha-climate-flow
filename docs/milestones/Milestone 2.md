@@ -64,9 +64,8 @@ Creating or editing a flow first collects its name and climate targets, then
 presents a second form for the two stages. The editor determines the
 capabilities shared by the selected targets before it renders the stage
 controls, so it only offers common HVAC, fan, swing, and preset values.
-Each stage description shows the common supported temperature range in Home
-Assistant's configured unit, and temperature input uses that range for
-validation. Saved data is validated again when the form is submitted.
+Temperature input uses the common supported range for validation. Saved data
+is validated again when the form is submitted.
 
 Temperatures are stored canonically in Celsius and converted at the Home
 Assistant UI boundary. Durations are stored as positive seconds.

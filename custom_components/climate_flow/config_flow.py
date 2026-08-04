@@ -15,7 +15,7 @@ from homeassistant.config_entries import (
     SubentryFlowContext,
     SubentryFlowResult,
 )
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import callback
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers.selector import (
     DurationSelector,
@@ -92,15 +92,6 @@ def _duration_suggestion(seconds: float | None) -> dict[str, float] | None:
     if milliseconds:
         suggestion["milliseconds"] = round(milliseconds * 1000, 3)
     return suggestion
-
-
-def _temperature_range_label(
-    hass: HomeAssistant, capabilities: SharedClimateCapabilities
-) -> str:
-    """Return the common target temperature range in Home Assistant's unit."""
-    minimum = temperature_from_celsius(hass, capabilities.minimum_temperature)
-    maximum = temperature_from_celsius(hass, capabilities.maximum_temperature)
-    return f"{minimum:g} - {maximum:g} {hass.config.units.temperature_unit}"
 
 
 class InvalidStageInputError(ValueError):
@@ -255,11 +246,6 @@ class ClimateFlowSubentryFlow(ConfigSubentryFlow):
             step_id="details",
             data_schema=self._details_schema(),
             errors=errors,
-            description_placeholders={
-                "temperature_range": _temperature_range_label(
-                    self.hass, self._capabilities
-                )
-            },
         )
 
     def _select_targets(

@@ -25,7 +25,7 @@
                     "sections": {
                         "stage_1": {
                             "name": "Stage 1",
-                            "description": "Configure the first climate state and how long it remains active. Supported temperature range: {{temperature_range}}.",
+                            "description": "Configure the first climate state and how long it remains active.",
                             "data": {
                                 "hvac_mode": "HVAC mode",
                                 "temperature": "Target temperature",
@@ -37,7 +37,7 @@
                         },
                         "stage_2": {
                             "name": "Stage 2",
-                            "description": "Configure the final climate state. Supported temperature range: {{temperature_range}}.",
+                            "description": "Configure the final climate state.",
                             "data": {
                                 "hvac_mode": "HVAC mode",
                                 "temperature": "Target temperature",

@@ -1,5 +1,7 @@
 """Tests for saved-flow switch entities and Climate Flow actions."""
 
+import asyncio
+
 import pytest
 from homeassistant.components.climate.const import (
     ATTR_HVAC_MODES,
@@ -169,6 +171,9 @@ async def test_conflicting_flow_start_keeps_switch_idle_and_is_translated(
         == "climate.bedroom is already controlled by another active flow"
     )
     assert hass.states.get("switch.overlapping_flow").state == "off"
+    assert not state_changes
+    await asyncio.sleep(0.15)
+    await hass.async_block_till_done()
     assert state_changes[-1].data["new_state"].state == "off"
     unsubscribe()
 

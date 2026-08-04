@@ -1,10 +1,13 @@
 """Switch entities for saved Climate Flow definitions."""
 
+from datetime import datetime
+
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.event import async_call_later
 
 from .runtime import ClimateFlowRuntime
 
@@ -90,7 +93,13 @@ class ClimateFlowSwitch(SwitchEntity):
         try:
             await self._runtime.async_start_many((self._flow_key,), self._context)
         except HomeAssistantError:
-            self.async_write_ha_state()
+
+            @callback
+            def publish_idle_state(_: datetime) -> None:
+                """Publish the rejected toggle after its service response."""
+                self.async_write_ha_state()
+
+            async_call_later(self.hass, 0.1, publish_idle_state)
             raise
 
     async def async_turn_off(self, **kwargs: object) -> None:

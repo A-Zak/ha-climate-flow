@@ -57,6 +57,9 @@ class ClimateFlowAcCard extends HTMLElement {
         button { border: 0; border-radius: 50%; background: var(--secondary-background-color); color: var(--primary-text-color); cursor: pointer; font: inherit; min-width: 44px; min-height: 44px; padding: 8px; }
         button:hover:not(:disabled), button.selected { background: var(--primary-color); color: var(--text-primary-color); }
         button:disabled { cursor: default; opacity: 0.45; }
+        .swing-icon { display: block; height: 28px; margin: auto; width: 28px; }
+        .swing-ray { fill: none; opacity: 0.28; stroke: currentColor; stroke-linecap: round; stroke-width: 2.5; }
+        .swing-ray.active { opacity: 1; stroke-width: 4; }
         .power { color: var(--state-climate-heat-color, var(--primary-color)); }
         .power.off { color: var(--disabled-text-color); }
         .error { padding: 16px; color: var(--error-color); }
@@ -72,9 +75,9 @@ class ClimateFlowAcCard extends HTMLElement {
           <button data-action="temperature" data-offset="${step}" aria-label="Increase temperature" ${controlsDisabled} ${canIncrease ? "" : "disabled"}>+</button>
         </div>
         <div class="swing" aria-label="Vertical swing direction">
-          ${this._swingButton("fixed 1", "↑", "Top", selectedSwing, controlsDisabled)}
-          ${this._swingButton("fixed 3", "↔", "Middle", selectedSwing, controlsDisabled)}
-          ${this._swingButton("fixed 5", "↓", "Bottom", selectedSwing, controlsDisabled)}
+          ${this._swingButton("fixed 1", 0, "Top", selectedSwing, controlsDisabled)}
+          ${this._swingButton("fixed 3", 2, "Middle", selectedSwing, controlsDisabled)}
+          ${this._swingButton("fixed 5", 4, "Bottom", selectedSwing, controlsDisabled)}
         </div>
       </ha-card>`;
 
@@ -83,9 +86,17 @@ class ClimateFlowAcCard extends HTMLElement {
     });
   }
 
-  _swingButton(value, icon, label, selectedSwing, disabled) {
+  _swingButton(value, highlightedIndex, label, selectedSwing, disabled) {
     const selected = value === selectedSwing ? "selected" : "";
-    return `<button class="${selected}" data-action="swing" data-swing="${value}" aria-label="Set swing ${label.toLowerCase()}" title="Swing ${label}" ${disabled}>${icon}</button>`;
+    return `<button class="${selected}" data-action="swing" data-swing="${value}" aria-label="Set swing ${label.toLowerCase()}" title="Swing ${label}" ${disabled}>${this._swingIcon(highlightedIndex)}</button>`;
+  }
+
+  _swingIcon(highlightedIndex) {
+    const rays = Array.from({ length: 5 }, (_, index) => {
+      const active = index === highlightedIndex ? "active" : "";
+      return `<line class="swing-ray ${active}" x1="8" y1="8" x2="34" y2="8" transform="rotate(${index * 22.5} 8 8)" />`;
+    }).join("");
+    return `<svg class="swing-icon" viewBox="0 0 40 40" aria-hidden="true">${rays}</svg>`;
   }
 
   _handleAction(button, state) {

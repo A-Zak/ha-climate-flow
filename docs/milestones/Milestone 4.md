@@ -43,7 +43,8 @@ does not alter the climate integration's underlying state.
 The power control is green while active, red while off or unavailable, and
 blue with a dashed outline while in a cleaning state. `cleaning_states`
 defaults to `cleaning`; configure it separately when the integration uses a
-different cleaning-state value.
+different cleaning-state value. An enabled `self_cleaning` attribute is also
+recognized as cleaning.
 
 ## Swing directions
 

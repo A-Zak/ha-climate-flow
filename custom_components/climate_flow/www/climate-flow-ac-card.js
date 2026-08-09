@@ -29,7 +29,9 @@ class ClimateFlowAcCard extends HTMLElement {
 
   _isCleaning(state) {
     const cleaningStates = this._config.cleaning_states ?? ["cleaning"];
-    return cleaningStates.includes(state.state) || cleaningStates.includes(state.attributes.hvac_action);
+    return cleaningStates.includes(state.state)
+      || cleaningStates.includes(state.attributes.hvac_action)
+      || this._isEnabled(state.attributes.self_cleaning);
   }
 
   _render() {
@@ -53,7 +55,7 @@ class ClimateFlowAcCard extends HTMLElement {
     const canDecrease = !Number.isFinite(temperature) || !Number.isFinite(minimum) || temperature > minimum;
     const canIncrease = !Number.isFinite(temperature) || !Number.isFinite(maximum) || temperature < maximum;
     const name = this._config.name ?? attributes.friendly_name ?? this._config.entity;
-    const mode = attributes.hvac_action ?? state.state;
+    const mode = isCleaning ? "cleaning" : attributes.hvac_action ?? state.state;
     const reportedSwingMode = attributes.swing_mode;
     const hasActiveSwingMode = this._normalizeSwingMode(reportedSwingMode) !== "off";
     const selectedSwing = hasActiveSwingMode ? reportedSwingMode : undefined;
@@ -181,6 +183,10 @@ class ClimateFlowAcCard extends HTMLElement {
 
   _normalizeSwingMode(value) {
     return String(value ?? "").trim().toLowerCase().replace(/[_-]+/g, " ");
+  }
+
+  _isEnabled(value) {
+    return value === true || ["on", "true", "1"].includes(String(value).toLowerCase());
   }
 }
 

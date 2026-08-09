@@ -45,6 +45,7 @@ def test_ac_card_asset_declares_the_supported_controls() -> None:
     assert "_normalizeSwingMode" in card
     assert "border-color: currentColor" in card
     assert "_lastActiveSwingMode" not in card
+    assert "self_cleaning" in card
 
 
 def test_config_entry_only_schema_accepts_empty_configuration() -> None:

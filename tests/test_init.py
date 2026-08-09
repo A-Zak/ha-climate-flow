@@ -66,6 +66,17 @@ def test_flow_subentry_translation_uses_current_schema() -> None:
     assert "title" not in flow
 
 
+def test_manifest_declares_the_http_dependency_for_the_card_asset() -> None:
+    """Test the card's static route declares its Home Assistant dependency."""
+    manifest_path = (
+        Path(__file__).parents[1] / "custom_components" / DOMAIN / "manifest.json"
+    )
+
+    manifest = json.loads(manifest_path.read_text())
+
+    assert "http" in manifest["dependencies"]
+
+
 async def test_setup_and_unload_entry(hass: HomeAssistant) -> None:
     """Test setting up and unloading a config entry."""
     entry = MockConfigEntry(domain=DOMAIN, title="Climate Flow", data={})

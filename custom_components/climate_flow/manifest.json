@@ -3,11 +3,12 @@
   "name": "Climate Flow",
   "codeowners": ["@A-Zak"],
   "config_flow": true,
+  "dependencies": ["http"],
   "documentation": "https://github.com/A-Zak/ha-climate-flow",
   "integration_type": "service",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/A-Zak/ha-climate-flow/issues",
   "requirements": [],
   "single_config_entry": true,
-  "version": "0.2.0"
+  "version": "0.2.1"
 }

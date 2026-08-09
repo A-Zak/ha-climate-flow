@@ -9,6 +9,11 @@ configured duration, applies Stage 2, then completes. Flows can select multiple
 climate targets and configure HVAC mode plus supported temperature, fan, swing,
 and preset controls.
 
+Milestone 4 also adds a generic AC dashboard card for standard `climate`
+entities. It shows the AC name, provides power and target-temperature controls,
+and maps top, middle, and bottom swing buttons to `fixed 1`, `fixed 3`, and
+`fixed 5` respectively.
+
 ## Installation
 
 Climate Flow Milestone 3 requires Home Assistant 2025.3 or newer because it
@@ -31,6 +36,27 @@ cancel it without restoring climate state. Automations may use
 `climate_flow.start` and `climate_flow.cancel`, targeting one or more Climate
 Flow switch entities. Flows with disjoint climate targets may run together;
 overlapping flows are rejected.
+
+## AC dashboard card
+
+Register `/api/climate_flow/card/climate-flow-ac-card.js` in **Settings >
+Dashboards > Resources** as a **JavaScript module**, then add this card:
+
+```yaml
+type: custom:climate-flow-ac-card
+entity: climate.example_ac
+```
+
+The card treats `off` and `cleaning` as visually off by default. For an AC
+that uses a different state during its shutdown-drying cycle, configure it:
+
+```yaml
+type: custom:climate-flow-ac-card
+entity: climate.example_ac
+off_states:
+  - off
+  - drying
+```
 
 ## Development
 

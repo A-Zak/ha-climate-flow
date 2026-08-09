@@ -1,183 +1,111 @@
-# Milestone 4: Generalized Stages and Conditions
+# Milestone 4: Generic AC Control Card
 
 ## Goal
 
-Expand saved flows from two fixed stages into user-managed ordered stage lists
-and add clock-time and temperature-based completion conditions.
+Provide a compact, installable Home Assistant custom dashboard card for
+controlling a standard `climate` entity.
+
+The card is independent of saved Climate Flow definitions. It can therefore be
+used with every compatible AC entity, whether or not the user has configured a
+Climate Flow.
 
 ## Included
 
-- Two or more ordered stages per saved flow
-- Optional human-readable stage display names
-- UI operations to add, edit, remove, and reorder stages
-- Migration of every Milestone 2 and Milestone 3 two-stage flow
-- Duration, local clock-time, and temperature-threshold conditions
-- Temperature aggregation across flow targets using `any` or `all`
-- Optional safety timeouts for temperature stages
-- Richer runtime status attributes
-- Active-flow edit protection for the generalized editor
-- Idempotent handling of competing completion signals
-- An integration-owned sidebar panel for managing saved flows
+- A JavaScript Lovelace card served by this integration
+- Card-picker registration and `climate`-entity suggestion
+- Climate entity name and current target temperature
+- A power button
+- Target-temperature decrement and increment buttons
+- Three vertical swing-direction buttons
+- Configurable states that should be displayed as power-off
+- Installation and configuration documentation
 
-## Flow management panel
+## Power state
 
-Milestone 4 adds a Climate Flow sidebar panel as the primary flow-management
-experience. It provides clearly labeled controls to create, edit, and remove
-flows, including an **Add flow** button, and presents the saved-flow list and
-its generalized stage editor in one place.
+Some AC integrations report an internal shutdown-cleaning or drying cycle as a
+non-`off` climate state even though the user has turned the unit off. The card
+treats the configured `off_states` list as visually off. Its default is:
 
-The panel updates stage controls immediately as the selected climate targets
-change. It recomputes the common HVAC, fan, swing, and preset options and the
-minimum and maximum target-temperature range in place, before the user saves
-the flow.
+```yaml
+off_states:
+  - off
+  - cleaning
+```
 
-The panel continues to use native Home Assistant config subentries as the
-stored flow definitions. The existing Integrations-page subentry UI remains
-available as a compatible fallback, but Climate Flow documentation directs
-users to the panel for normal management.
+When the entity state is one of these values, the power button is shown off and
+pressing it calls `climate.turn_on`. Otherwise the button calls
+`climate.turn_off`. This affects only the card display and button behavior; it
+does not alter the climate integration's underlying state.
 
-The panel must use supported Home Assistant frontend and backend APIs, keep
-all validation in the integration backend, and surface configuration failures
-as actionable user-facing messages. It does not introduce a separate storage
-format or bypass config-subentry identity.
+## Swing directions
 
-## Stage model and migration
+The card maps its three direction buttons to these raw `swing_mode` values:
 
-The fixed two-stage editor is replaced by an ordered collection containing at
-least two stages. There is no fixed maximum unless Home Assistant imposes a
-practical form limit that must be documented.
+| Button | Raw swing mode |
+| --- | --- |
+| Top | `fixed 1` |
+| Middle | `fixed 3` |
+| Bottom | `fixed 5` |
 
-Each stage may have an optional display name. An unnamed stage is shown as
-`Stage N`, using its current one-based position.
+The selected button reflects the climate entity's current `swing_mode`. The
+card deliberately does not send an automatic or continuous swing value.
 
-Existing two-stage flows are migrated without changing their order, climate
-state, durations, display name, logical flow ID, config subentry ID, or switch
-entity identity. Their stages remain unnamed and therefore display as
-`Stage 1` and `Stage 2` until edited.
+## Card configuration
 
-Reordering changes only stage position. Runtime persistence introduced later
-must identify execution position explicitly rather than treating a stage name
-as an identifier.
+After registering the JavaScript module as a dashboard resource, use:
 
-## Completion conditions
+```yaml
+type: custom:climate-flow-ac-card
+entity: climate.example_ac
+```
 
-Every non-final stage must have one completion condition. The final stage may
-omit its condition to apply its state and complete immediately.
+Optional configuration:
 
-Supported conditions are:
+```yaml
+type: custom:climate-flow-ac-card
+entity: climate.example_ac
+name: Bedroom AC
+off_states:
+  - off
+  - cleaning
+```
 
-- `duration`: wait for a positive relative duration.
-- `clock_time`: wait until the next occurrence of a local wall-clock time in
-  Home Assistant's configured timezone.
-- `temperature`: wait until current temperature is at or above, or at or
-  below, a configured threshold.
-
-Temperature conditions use the `current_temperature` attribute of the
-remaining target climate entities. The user chooses one aggregation rule:
-
-- `any`: advance when at least one remaining target satisfies the threshold.
-- `all`: advance only when every remaining target satisfies the threshold.
-
-The condition is evaluated immediately when its stage begins and after
-relevant state changes. Exact floating-point equality is not required beyond
-the inclusive at-or-above or at-or-below comparison.
-
-An unknown or temporarily missing temperature does not satisfy the condition.
-A target that becomes unavailable is removed under the partial-failure rules
-from Milestone 3, after which `any` or `all` applies only to remaining targets.
-
-A temperature stage may define a positive safety timeout. If the threshold is
-not satisfied before that timeout, the entire flow fails; it never advances
-silently.
-
-## Runtime status and lifecycle
-
-In addition to Milestone 3 attributes, the flow switch reports:
-
-- Current stage display name or positional fallback
-- Completion-condition type and summary
-- Clock or safety-timeout deadline when applicable
-- Last terminal result: completed, cancelled, or failed
-- Last translated or user-readable error
-
-Only one completion path may win for a stage. Duration deadlines,
-clock-time deadlines, temperature events, safety timeouts, cancellation, and
-target loss must use an idempotent advancement guard and clean up all losing
-callbacks.
-
-An active flow cannot be renamed, reconfigured, or reordered. The UI flow
-aborts with a translated instruction to cancel it first. Removing an active
-flow cancels it before removal.
-
-## Failure behavior
-
-- Invalid stage counts, conditions, time values, thresholds, and timeouts are
-  rejected during configuration.
-- A temperature stage is rejected if its selected climate targets do not
-  expose usable current-temperature capability at configuration or start.
-- Target and command failures retain Milestone 3 partial-continuation
-  behavior.
-- If no targets remain, the flow fails regardless of condition type.
-- A safety timeout fails the complete flow and leaves climate state unchanged.
-- External manual changes do not cancel a flow or trigger continuous state
-  reapplication.
+Temperature buttons call `climate.set_temperature` using the entity's current
+target temperature and its `target_temp_step`. They are disabled while the
+card displays the AC as off and at the entity's advertised minimum or maximum.
 
 ## Not included
 
-- Restart persistence or recovery
-- Separate temperature sensors as measurement sources
-- Per-target climate states within one stage
-- Boolean condition trees or arbitrary Home Assistant conditions
-- Automatic conflict replacement or queuing
-- Restoring pre-flow climate state
-- A custom dashboard card
+- A replacement for Home Assistant's built-in climate card
+- HVAC-mode, fan-mode, preset-mode, or horizontal-swing controls
+- A custom Climate Flow entity type or a dependency on saved flows
+- Per-device hardcoded entity IDs or manufacturer-specific commands
+- Automatic discovery of non-standard cleaning state names
 
 ## Automated tests
 
-- Create, edit, remove, and reorder generalized stages.
-- Enforce a minimum of two stages and condition requirements by position.
-- Store and display optional stage names with positional fallbacks.
-- Migrate fixed two-stage flows without changing behavior or identity.
-- Execute duration, next-local-clock-time, and temperature stages.
-- Cover timezone and daylight-saving transitions for clock-time deadlines.
-- Evaluate already-satisfied temperature conditions immediately.
-- Verify inclusive at-or-above and at-or-below comparisons.
-- Cover `any` and `all` as targets satisfy, become unavailable, or report
-  invalid temperatures.
-- Fail temperature stages at optional safety deadlines.
-- Prevent duplicate advancement across every competing callback combination.
-- Reject edits while active and preserve stable flow switch identity.
-- Validate richer status attributes, terminal results, errors, and cleanup.
-- Verify the sidebar panel's labeled create, edit, and remove controls use the
-  same config-subentry data and validation as the native fallback UI.
+- Verify the integration distributes the card asset.
+- Verify the card declares climate power, temperature, and swing actions.
+- Verify the three documented `fixed 1`, `fixed 3`, and `fixed 5` mappings.
+
+Browser-level interaction testing is deferred until the repository has a
+frontend test harness.
 
 ## Manual smoke test
 
 1. Install the Milestone 4 build and restart Home Assistant.
-2. Confirm existing two-stage flows migrate unchanged.
-3. Use the Climate Flow sidebar panel to add, name, remove, and reorder stages.
-4. Confirm its **Add flow** button is visibly labeled and the native
-   Integrations-page subentry UI remains usable as a fallback.
-5. Run a flow with more than two duration stages and verify their order.
-6. Run a clock-time stage and verify it advances at the configured local time.
-7. Run temperature stages using both `any` and `all` across multiple targets.
-8. Confirm an already-satisfied temperature stage advances immediately.
-9. Confirm a temperature safety timeout fails rather than advances the flow.
-10. Attempt to edit an active flow and verify the UI instructs cancellation
-   first.
-11. Confirm switch status attributes and logs describe stage transitions and
-   the terminal result.
-12. Inspect the temporary debug logs, then disable the debug logger overrides
-   after the smoke test passes.
+2. Register `/api/climate_flow/card/climate-flow-ac-card.js` as a dashboard
+   resource of type **JavaScript module**.
+3. Add the card for a test `climate` entity and confirm its name appears.
+4. Test power, temperature, and the top/middle/bottom swing buttons.
+5. While the AC reports `cleaning`, confirm the card presents it as off.
+6. Set a different `off_states` list if the climate integration uses another
+   name for its shutdown-cleaning state.
 
 ## Completion criteria
 
-- Existing two-stage flows migrate without behavioral or identity changes.
-- Users can manage two or more ordered, optionally named stages in the UI.
-- The labeled sidebar management panel and native subentry fallback operate on
-  the same saved-flow definitions.
-- Duration, clock-time, and temperature completion conditions behave as
-  documented.
-- Safety timeouts and competing callbacks fail or advance exactly once.
-- Ruff, pytest, HACS validation, and hassfest pass.
-- Documentation and translations match implemented behavior.
+- The card operates a standard `climate` entity without a saved flow.
+- Cleaning is configurable as a visual-off state and defaults to `cleaning`.
+- Direction buttons map to `fixed 1`, `fixed 3`, and `fixed 5`.
+- Documentation describes resource registration and configuration.
+- Ruff and pytest pass.

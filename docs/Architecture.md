@@ -53,6 +53,10 @@ user-facing name, an internal logical flow ID, and a stable config subentry ID.
 It contains exactly two stages: Stage 1 has a required duration and Stage 2
 applies immediately before completion.
 
+Milestone 4 distributes a generic Lovelace AC control card. The card acts on a
+standard `climate` entity and is separate from the flow runtime, so it does not
+require a saved flow or share its identity model.
+
 ## Architectural layers
 
 The integration should be divided conceptually into two main layers.

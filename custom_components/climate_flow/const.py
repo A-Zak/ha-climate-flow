@@ -1,6 +1,7 @@
 """Constants for the Climate Flow integration."""
 
 DOMAIN = "climate_flow"
+CARD_URL = f"/api/{DOMAIN}/card"
 
 CONF_DURATION = "duration"
 CONF_FLOW_ID = "flow_id"

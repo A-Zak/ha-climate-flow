@@ -1,166 +1,183 @@
-# Milestone 5: Restart Recovery and Hardening
+# Milestone 5: Generalized Stages and Conditions
 
 ## Goal
 
-Persist active Climate Flow executions and restore them accurately after a
-Home Assistant restart while hardening lifecycle, migration, and failure
-handling.
+Expand saved flows from two fixed stages into user-managed ordered stage lists
+and add clock-time and temperature-based completion conditions.
 
 ## Included
 
-- Versioned active-run persistence using Home Assistant's storage helper
-- Continuous persistence at every meaningful execution transition
-- Accurate duration and clock-time recovery
-- Temperature-condition re-evaluation after recovery
-- Recovery of remaining target ownership
-- Safe handling of missing, stale, corrupt, or incompatible recovery data
-- Clear shutdown, reload, disable, removal, and unload semantics
-- Final lifecycle and migration hardening
-- End-to-end restart tests and manual smoke procedures
+- Two or more ordered stages per saved flow
+- Optional human-readable stage display names
+- UI operations to add, edit, remove, and reorder stages
+- Migration of every Milestone 2 and Milestone 3 two-stage flow
+- Duration, local clock-time, and temperature-threshold conditions
+- Temperature aggregation across flow targets using `any` or `all`
+- Optional safety timeouts for temperature stages
+- Richer runtime status attributes
+- Active-flow edit protection for the generalized editor
+- Idempotent handling of competing completion signals
+- An integration-owned sidebar panel for managing saved flows
 
-## Persisted execution state
+## Flow management panel
 
-Saved flow definitions remain in config subentries. Active-run storage holds
-only the minimum information needed to resume execution, including:
+Milestone 5 adds a Climate Flow sidebar panel as the primary flow-management
+experience. It provides clearly labeled controls to create, edit, and remove
+flows, including an **Add flow** button, and presents the saved-flow list and
+its generalized stage editor in one place.
 
-- Storage schema version
-- Stable flow config subentry ID
-- Current stage position
-- Remaining climate targets
-- Run and stage start timestamps
-- Absolute duration, clock-time, or safety-timeout deadlines when applicable
-- Current terminal or recovery status needed for validation
+The panel updates stage controls immediately as the selected climate targets
+change. It recomputes the common HVAC, fan, swing, and preset options and the
+minimum and maximum target-temperature range in place, before the user saves
+the flow.
 
-Definitions and active-run records are not stored in a custom database.
-Logical flow IDs, display names, and stage names are not used as stable
-recovery keys.
+The panel continues to use native Home Assistant config subentries as the
+stored flow definitions. The existing Integrations-page subentry UI remains
+available as a compatible fallback, but Climate Flow documentation directs
+users to the panel for normal management.
 
-Storage is updated after:
+The panel must use supported Home Assistant frontend and backend APIs, keep
+all validation in the integration backend, and surface configuration failures
+as actionable user-facing messages. It does not introduce a separate storage
+format or bypass config-subentry identity.
 
-- A successful start
-- A stage transition
-- A target removal
-- Cancellation
-- Completion
-- Failure
+## Stage model and migration
 
-Cancelled, completed, and failed runs are removed from active-run storage
-after their terminal status has been published to the switch entity.
+The fixed two-stage editor is replaced by an ordered collection containing at
+least two stages. There is no fixed maximum unless Home Assistant imposes a
+practical form limit that must be documented.
 
-## Recovery behavior
+Each stage may have an optional display name. An unnamed stage is shown as
+`Stage N`, using its current one-based position.
 
-On Home Assistant startup, Climate Flow validates every persisted run against
-the current config entry and saved flow definition before reserving targets.
+Existing two-stage flows are migrated without changing their order, climate
+state, durations, display name, logical flow ID, config subentry ID, or switch
+entity identity. Their stages remain unnamed and therefore display as
+`Stage 1` and `Stage 2` until edited.
 
-For duration and clock-time stages:
+Reordering changes only stage position. Runtime persistence introduced later
+must identify execution position explicitly rather than treating a stage name
+as an identifier.
 
-- Downtime counts toward absolute deadlines.
-- If the current deadline is still in the future, reapply the current stage
-  and schedule its remaining wait.
-- If one or more timed stages elapsed while Home Assistant was offline, skip
-  obsolete intermediate states without applying them briefly.
-- Continue calculating from the persisted absolute timeline until reaching
-  the currently effective stage.
-- If an elapsed transition reaches an immediate final stage, apply that final
-  climate state once and complete.
+## Completion conditions
 
-For temperature stages:
+Every non-final stage must have one completion condition. The final stage may
+omit its condition to apply its state and complete immediately.
 
-- Reapply the active stage to remaining targets.
-- Read current temperatures after Home Assistant state restoration is ready.
-- Advance immediately if the configured `any` or `all` condition is currently
-  satisfied.
-- Otherwise restore listeners and any remaining safety-timeout deadline.
-- Do not assume that an unobserved threshold crossing occurred during
-  downtime.
+Supported conditions are:
 
-Recovered runs retain the partial-target policy. Invalid or unavailable
-targets are removed, and the run fails if none remain.
+- `duration`: wait for a positive relative duration.
+- `clock_time`: wait until the next occurrence of a local wall-clock time in
+  Home Assistant's configured timezone.
+- `temperature`: wait until current temperature is at or above, or at or
+  below, a configured threshold.
 
-## Lifecycle behavior
+Temperature conditions use the `current_temperature` attribute of the
+remaining target climate entities. The user chooses one aggregation rule:
 
-- Home Assistant shutdown preserves the latest active-run records for the
-  next startup.
-- A normal integration reload cancels active runs and clears their recovery
-  records before setting the entry up again.
-- Disabling or removing the config entry cancels all runs and clears their
-  recovery records.
-- Removing a saved flow clears any recovery record belonging to it.
-- Cleanup remains idempotent if shutdown, unload, cancellation, and a
-  completion callback occur close together.
+- `any`: advance when at least one remaining target satisfies the threshold.
+- `all`: advance only when every remaining target satisfies the threshold.
 
-The integration must distinguish Home Assistant shutdown from other unload
-paths rather than treating every unload as recoverable.
+The condition is evaluated immediately when its stage begins and after
+relevant state changes. Exact floating-point equality is not required beyond
+the inclusive at-or-above or at-or-below comparison.
 
-## Invalid recovery data
+An unknown or temporarily missing temperature does not satisfy the condition.
+A target that becomes unavailable is removed under the partial-failure rules
+from Milestone 3, after which `any` or `all` applies only to remaining targets.
 
-Missing storage means there is nothing to resume and is not an error.
+A temperature stage may define a positive safety timeout. If the threshold is
+not satisfied before that timeout, the entire flow fails; it never advances
+silently.
 
-An individual stale, malformed, unknown-version, missing-flow, invalid-stage,
-or conflicting-target record is discarded safely. Other valid records still
-resume. The affected flow remains idle and the reason is logged without
-preventing Climate Flow setup.
+## Runtime status and lifecycle
 
-Recovery must never apply climate commands until the record, saved flow,
-targets, and ownership have passed validation.
+In addition to Milestone 3 attributes, the flow switch reports:
+
+- Current stage display name or positional fallback
+- Completion-condition type and summary
+- Clock or safety-timeout deadline when applicable
+- Last terminal result: completed, cancelled, or failed
+- Last translated or user-readable error
+
+Only one completion path may win for a stage. Duration deadlines,
+clock-time deadlines, temperature events, safety timeouts, cancellation, and
+target loss must use an idempotent advancement guard and clean up all losing
+callbacks.
+
+An active flow cannot be renamed, reconfigured, or reordered. The UI flow
+aborts with a translated instruction to cancel it first. Removing an active
+flow cancels it before removal.
+
+## Failure behavior
+
+- Invalid stage counts, conditions, time values, thresholds, and timeouts are
+  rejected during configuration.
+- A temperature stage is rejected if its selected climate targets do not
+  expose usable current-temperature capability at configuration or start.
+- Target and command failures retain Milestone 3 partial-continuation
+  behavior.
+- If no targets remain, the flow fails regardless of condition type.
+- A safety timeout fails the complete flow and leaves climate state unchanged.
+- External manual changes do not cancel a flow or trigger continuous state
+  reapplication.
 
 ## Not included
 
-- Restoring climate state from before a flow started
-- A custom database
-- Historical run reporting or analytics
-- Cross-instance or remote synchronization
-- Automatic retries that re-add targets dropped from a run
+- Restart persistence or recovery
+- Separate temperature sensors as measurement sources
+- Per-target climate states within one stage
+- Boolean condition trees or arbitrary Home Assistant conditions
 - Automatic conflict replacement or queuing
+- Restoring pre-flow climate state
 - A custom dashboard card
 
 ## Automated tests
 
-- Persist every start, transition, target removal, and terminal cleanup.
-- Resume a timed stage before its deadline with the correct remaining delay.
-- Recover exactly at and after a deadline.
-- Skip multiple elapsed stages without applying obsolete climate states.
-- Apply an elapsed immediate final stage and complete.
-- Recover clock-time stages across timezone and daylight-saving boundaries.
-- Re-evaluate `any` and `all` temperature conditions from current state.
-- Restore or expire a temperature safety timeout correctly.
-- Recover with some targets unavailable and fail when none remain.
-- Resolve ownership conflicts deterministically without partial commands.
-- Ignore missing storage and isolate corrupt, stale, and incompatible records.
-- Preserve records during Home Assistant shutdown.
-- Clear records during reload, disable, entry removal, flow removal, and
-  explicit cancellation.
-- Prevent duplicate cleanup during shutdown and callback races.
-- Verify setup succeeds even when one recovery record is rejected.
+- Create, edit, remove, and reorder generalized stages.
+- Enforce a minimum of two stages and condition requirements by position.
+- Store and display optional stage names with positional fallbacks.
+- Migrate fixed two-stage flows without changing behavior or identity.
+- Execute duration, next-local-clock-time, and temperature stages.
+- Cover timezone and daylight-saving transitions for clock-time deadlines.
+- Evaluate already-satisfied temperature conditions immediately.
+- Verify inclusive at-or-above and at-or-below comparisons.
+- Cover `any` and `all` as targets satisfy, become unavailable, or report
+  invalid temperatures.
+- Fail temperature stages at optional safety deadlines.
+- Prevent duplicate advancement across every competing callback combination.
+- Reject edits while active and preserve stable flow switch identity.
+- Validate richer status attributes, terminal results, errors, and cleanup.
+- Verify the sidebar panel's labeled create, edit, and remove controls use the
+  same config-subentry data and validation as the native fallback UI.
 
 ## Manual smoke test
 
 1. Install the Milestone 5 build and restart Home Assistant.
-2. Start a duration flow, restart before its deadline, and confirm it resumes
-   with the correct remaining time.
-3. Restart while enough time elapses to pass multiple stages and confirm only
-   the currently effective state is applied.
-4. Restart during a clock-time stage before and after its deadline.
-5. Restart during a temperature stage and confirm current temperatures are
-   re-evaluated.
-6. Confirm a persisted safety timeout retains its original absolute deadline.
-7. Reload Climate Flow without restarting Home Assistant and confirm active
-   runs are cancelled instead of resumed.
-8. Disable and re-enable the config entry and confirm stale runs do not return.
-9. Remove an active saved flow and confirm its recovery record is cleared.
-10. Inspect logs for recovery validation, resumed runs, discarded records, or
-    lifecycle errors.
-11. Once the integration is running correctly, remove all temporary debug
-    logger overrides and restart Home Assistant.
+2. Confirm existing two-stage flows migrate unchanged.
+3. Use the Climate Flow sidebar panel to add, name, remove, and reorder stages.
+4. Confirm its **Add flow** button is visibly labeled and the native
+   Integrations-page subentry UI remains usable as a fallback.
+5. Run a flow with more than two duration stages and verify their order.
+6. Run a clock-time stage and verify it advances at the configured local time.
+7. Run temperature stages using both `any` and `all` across multiple targets.
+8. Confirm an already-satisfied temperature stage advances immediately.
+9. Confirm a temperature safety timeout fails rather than advances the flow.
+10. Attempt to edit an active flow and verify the UI instructs cancellation
+   first.
+11. Confirm switch status attributes and logs describe stage transitions and
+   the terminal result.
+12. Inspect the temporary debug logs, then disable the debug logger overrides
+   after the smoke test passes.
 
 ## Completion criteria
 
-- Active flows resume accurately after Home Assistant restart.
-- Downtime is accounted for without transiently applying obsolete stages.
-- Temperature conditions and safety timeouts recover predictably.
-- Reload, disable, removal, cancellation, and shutdown have distinct tested
-  behavior.
-- Invalid persisted state cannot prevent integration setup or unsafe climate
-  commands.
+- Existing two-stage flows migrate without behavioral or identity changes.
+- Users can manage two or more ordered, optionally named stages in the UI.
+- The labeled sidebar management panel and native subentry fallback operate on
+  the same saved-flow definitions.
+- Duration, clock-time, and temperature completion conditions behave as
+  documented.
+- Safety timeouts and competing callbacks fail or advance exactly once.
 - Ruff, pytest, HACS validation, and hassfest pass.
 - Documentation and translations match implemented behavior.

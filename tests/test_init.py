@@ -11,6 +11,28 @@ from custom_components.climate_flow import CONFIG_SCHEMA
 from custom_components.climate_flow.const import DOMAIN
 
 
+def test_ac_card_asset_declares_the_supported_controls() -> None:
+    """Test the distributed AC card exposes its documented interface."""
+    card_path = (
+        Path(__file__).parents[1]
+        / "custom_components"
+        / DOMAIN
+        / "www"
+        / "climate-flow-ac-card.js"
+    )
+
+    card = card_path.read_text()
+
+    assert 'customElements.define("climate-flow-ac-card"' in card
+    assert '"set_temperature"' in card
+    assert '"set_swing_mode"' in card
+    assert '"turn_on"' in card
+    assert '"turn_off"' in card
+    assert '"fixed 1"' in card
+    assert '"fixed 3"' in card
+    assert '"fixed 5"' in card
+
+
 def test_config_entry_only_schema_accepts_empty_configuration() -> None:
     """Test Climate Flow declares its config-entry-only setup contract."""
     assert CONFIG_SCHEMA({}) == {}

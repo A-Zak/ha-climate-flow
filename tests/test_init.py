@@ -42,6 +42,9 @@ def test_ac_card_asset_declares_the_supported_controls() -> None:
     assert "border: 3px" in card
     assert '"hass-action"' in card
     assert 'action: "more-info"' in card
+    assert "off_swing_mode" in card
+    assert "_normalizeSwingMode" in card
+    assert "border-color: currentColor" in card
 
 
 def test_config_entry_only_schema_accepts_empty_configuration() -> None:

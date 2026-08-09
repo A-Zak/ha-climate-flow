@@ -9,6 +9,9 @@ class ClimateFlowAcCard extends HTMLElement {
     if (config.cleaning_states && !Array.isArray(config.cleaning_states)) {
       throw new Error("cleaning_states must be a list of climate states.");
     }
+    if (config.off_swing_mode && typeof config.off_swing_mode !== "string") {
+      throw new Error("off_swing_mode must be a swing-mode name.");
+    }
     this._config = config;
     this._render();
   }
@@ -54,24 +57,31 @@ class ClimateFlowAcCard extends HTMLElement {
     const canIncrease = !Number.isFinite(temperature) || !Number.isFinite(maximum) || temperature < maximum;
     const name = this._config.name ?? attributes.friendly_name ?? this._config.entity;
     const mode = attributes.hvac_action ?? state.state;
-    const selectedSwing = attributes.swing_mode;
+    const reportedSwingMode = attributes.swing_mode;
+    const hasActiveSwingMode = this._normalizeSwingMode(reportedSwingMode) !== "off";
+    if (reportedSwingMode && hasActiveSwingMode) {
+      this._lastActiveSwingMode = reportedSwingMode;
+    }
+    const selectedSwing = hasActiveSwingMode
+      ? reportedSwingMode
+      : this._lastActiveSwingMode ?? this._config.off_swing_mode ?? reportedSwingMode;
     const mappedSwingModes = ["fixed 1", "fixed 3", "fixed 5"];
-    const otherSwingMode = selectedSwing && !mappedSwingModes.includes(selectedSwing) ? selectedSwing : undefined;
+    const otherSwingMode = selectedSwing && !mappedSwingModes.includes(this._normalizeSwingMode(selectedSwing)) ? selectedSwing : undefined;
     const controlsDisabled = isOff || isUnavailable ? "disabled" : "";
     const powerClass = isCleaning ? "power-cleaning" : isOff || isUnavailable ? "power-off" : "power-on";
     const powerLabel = isCleaning ? "Cleaning" : isUnavailable ? "Unavailable" : isOff ? "Turn on" : "Turn off";
 
     this.innerHTML = `
       <style>
-        :host { display: block; }
-        ha-card { padding: 16px; }
+        :host { display: block; min-width: 0; }
+        ha-card { box-sizing: border-box; min-width: 0; padding: clamp(8px, 4vw, 16px); }
         .header, .temperature, .swing { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
         .header { margin-bottom: 20px; font-size: 1.1em; font-weight: 500; }
         .header-left { align-items: center; display: flex; gap: 8px; }
         .title { display: grid; gap: 2px; }
         .more-info { font-size: 1.3em; line-height: 1; min-height: 36px; min-width: 36px; padding: 0; }
         .mode-state, .swing-state { color: var(--secondary-text-color); font-size: 0.8em; font-weight: 400; }
-        .temperature { justify-content: center; margin-bottom: 4px; }
+        .temperature { display: grid; gap: 8px; grid-template-columns: 40px minmax(4.5em, auto) 40px; justify-content: center; margin: 0 auto 4px; max-width: 200px; width: 100%; }
         .temperature-value { min-width: 4.5em; text-align: center; font-size: 2em; font-weight: 400; }
         .current-temperature { color: var(--secondary-text-color); font-size: 0.9em; margin-bottom: 18px; text-align: center; }
         .swing { justify-content: center; }
@@ -82,8 +92,8 @@ class ClimateFlowAcCard extends HTMLElement {
         .swing-icon { display: block; height: 28px; margin: auto; width: 28px; }
         .swing-ray { fill: none; opacity: 0.28; stroke: currentColor; stroke-linecap: round; stroke-width: 2.5; }
         .swing-ray.active { opacity: 1; stroke-width: 4; }
-        .power-on { color: var(--success-color, #4caf50); }
-        .power-off { color: var(--error-color, #f44336); }
+        .power-on { border-color: currentColor; color: var(--success-color, #4caf50); }
+        .power-off { border-color: currentColor; color: var(--error-color, #f44336); }
         .power-cleaning { border-color: var(--info-color, #2196f3); border-style: dashed; color: var(--info-color, #2196f3); }
         .error { padding: 16px; color: var(--error-color); }
       </style>
@@ -120,7 +130,7 @@ class ClimateFlowAcCard extends HTMLElement {
   }
 
   _swingButton(value, highlightedIndex, label, selectedSwing, disabled) {
-    const selected = value === selectedSwing ? "selected" : "";
+    const selected = this._normalizeSwingMode(value) === this._normalizeSwingMode(selectedSwing) ? "selected" : "";
     return `<button class="${selected}" data-action="swing" data-swing="${value}" aria-label="Set swing ${label.toLowerCase()}" title="Swing ${label}" ${disabled}>${this._swingIcon(highlightedIndex)}</button>`;
   }
 
@@ -175,6 +185,10 @@ class ClimateFlowAcCard extends HTMLElement {
 
   _formatState(value) {
     return String(value).replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }
+
+  _normalizeSwingMode(value) {
+    return String(value ?? "").trim().toLowerCase().replace(/[_-]+/g, " ");
   }
 }
 

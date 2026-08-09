@@ -84,6 +84,11 @@ Temperature buttons call `climate.set_temperature` using the entity's current
 target temperature and its `target_temp_step`. They are disabled while the
 card displays the AC as off and at the entity's advertised minimum or maximum.
 
+For entities that report `swing_mode: off` while powered down, the card keeps
+the last active swing position it saw. An optional `off_swing_mode`, such as
+`fixed 3`, supplies the intended position when the card is first loaded while
+the AC is off.
+
 ## Not included
 
 - A replacement for Home Assistant's built-in climate card

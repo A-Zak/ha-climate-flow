@@ -58,7 +58,6 @@ off_states:
   - drying
 cleaning_states:
   - drying
-off_swing_mode: fixed 3
 ```
 
 It displays the entity's `current_temperature` whenever available. The power
@@ -67,11 +66,6 @@ dashed outline during a configured cleaning state. It also displays the current
 HVAC action or mode and highlights a mapped swing position; another swing mode
 is shown by name beside the direction controls. The three-dots button opens
 Home Assistant's standard full climate-control dialog.
-
-When an AC reports `swing_mode: off`, Home Assistant does not expose the
-position it will resume. The card remembers the last active position while it
-remains open. Set `off_swing_mode` for an AC that starts off, so the intended
-direction is highlighted immediately.
 
 ## Development
 

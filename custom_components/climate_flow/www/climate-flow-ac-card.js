@@ -9,9 +9,6 @@ class ClimateFlowAcCard extends HTMLElement {
     if (config.cleaning_states && !Array.isArray(config.cleaning_states)) {
       throw new Error("cleaning_states must be a list of climate states.");
     }
-    if (config.off_swing_mode && typeof config.off_swing_mode !== "string") {
-      throw new Error("off_swing_mode must be a swing-mode name.");
-    }
     this._config = config;
     this._render();
   }
@@ -59,12 +56,7 @@ class ClimateFlowAcCard extends HTMLElement {
     const mode = attributes.hvac_action ?? state.state;
     const reportedSwingMode = attributes.swing_mode;
     const hasActiveSwingMode = this._normalizeSwingMode(reportedSwingMode) !== "off";
-    if (reportedSwingMode && hasActiveSwingMode) {
-      this._lastActiveSwingMode = reportedSwingMode;
-    }
-    const selectedSwing = hasActiveSwingMode
-      ? reportedSwingMode
-      : this._lastActiveSwingMode ?? this._config.off_swing_mode ?? reportedSwingMode;
+    const selectedSwing = hasActiveSwingMode ? reportedSwingMode : undefined;
     const mappedSwingModes = ["fixed 1", "fixed 3", "fixed 5"];
     const otherSwingMode = selectedSwing && !mappedSwingModes.includes(this._normalizeSwingMode(selectedSwing)) ? selectedSwing : undefined;
     const controlsDisabled = isOff || isUnavailable ? "disabled" : "";

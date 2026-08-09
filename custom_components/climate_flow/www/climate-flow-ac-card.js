@@ -29,7 +29,7 @@ class ClimateFlowAcCard extends HTMLElement {
 
   _isCleaning(state) {
     const cleaningStates = this._config.cleaning_states ?? ["cleaning"];
-    return cleaningStates.includes(state.state);
+    return cleaningStates.includes(state.state) || cleaningStates.includes(state.attributes.hvac_action);
   }
 
   _render() {
@@ -42,8 +42,8 @@ class ClimateFlowAcCard extends HTMLElement {
     }
 
     const attributes = state.attributes;
-    const isOff = this._isOff(state);
     const isCleaning = this._isCleaning(state);
+    const isOff = this._isOff(state) || isCleaning;
     const isUnavailable = ["unavailable", "unknown"].includes(state.state);
     const temperature = Number(attributes.temperature);
     const currentTemperature = Number(attributes.current_temperature);
@@ -53,7 +53,10 @@ class ClimateFlowAcCard extends HTMLElement {
     const canDecrease = !Number.isFinite(temperature) || !Number.isFinite(minimum) || temperature > minimum;
     const canIncrease = !Number.isFinite(temperature) || !Number.isFinite(maximum) || temperature < maximum;
     const name = this._config.name ?? attributes.friendly_name ?? this._config.entity;
+    const mode = attributes.hvac_action ?? state.state;
     const selectedSwing = attributes.swing_mode;
+    const mappedSwingModes = ["fixed 1", "fixed 3", "fixed 5"];
+    const otherSwingMode = selectedSwing && !mappedSwingModes.includes(selectedSwing) ? selectedSwing : undefined;
     const controlsDisabled = isOff || isUnavailable ? "disabled" : "";
     const powerClass = isCleaning ? "power-cleaning" : isOff || isUnavailable ? "power-off" : "power-on";
     const powerLabel = isCleaning ? "Cleaning" : isUnavailable ? "Unavailable" : isOff ? "Turn on" : "Turn off";
@@ -64,11 +67,14 @@ class ClimateFlowAcCard extends HTMLElement {
         ha-card { padding: 16px; }
         .header, .temperature, .swing { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
         .header { margin-bottom: 20px; font-size: 1.1em; font-weight: 500; }
+        .header-left { display: grid; gap: 2px; }
+        .mode-state, .swing-state { color: var(--secondary-text-color); font-size: 0.8em; font-weight: 400; }
         .temperature { justify-content: center; margin-bottom: 4px; }
         .temperature-value { min-width: 4.5em; text-align: center; font-size: 2em; font-weight: 400; }
         .current-temperature { color: var(--secondary-text-color); font-size: 0.9em; margin-bottom: 18px; text-align: center; }
         .swing { justify-content: center; }
-        button { border: 2px solid transparent; border-radius: 50%; background: var(--secondary-background-color); color: var(--primary-text-color); cursor: pointer; font: inherit; min-width: 44px; min-height: 44px; padding: 8px; }
+        .swing-buttons { display: flex; gap: 12px; }
+        button { border: 3px solid transparent; border-radius: 50%; background: var(--secondary-background-color); color: var(--primary-text-color); cursor: pointer; font: inherit; min-width: 44px; min-height: 44px; padding: 8px; }
         button:hover:not(:disabled), button.selected { background: var(--primary-color); color: var(--text-primary-color); }
         button:disabled { cursor: default; opacity: 0.45; }
         .swing-icon { display: block; height: 28px; margin: auto; width: 28px; }
@@ -81,7 +87,10 @@ class ClimateFlowAcCard extends HTMLElement {
       </style>
       <ha-card>
         <div class="header">
-          <span>${this._escape(name)}</span>
+          <div class="header-left">
+            <span>${this._escape(name)}</span>
+            <span class="mode-state">${this._escape(this._formatState(mode))}</span>
+          </div>
           <button class="power ${powerClass}" data-action="power" aria-label="${powerLabel}" title="${powerLabel}" ${isUnavailable ? "disabled" : ""}>⏻</button>
         </div>
         <div class="temperature">
@@ -91,9 +100,12 @@ class ClimateFlowAcCard extends HTMLElement {
         </div>
         ${Number.isFinite(currentTemperature) ? `<div class="current-temperature">Current: ${currentTemperature} ${this._escape(attributes.temperature_unit ?? "°")}</div>` : ""}
         <div class="swing" aria-label="Vertical swing direction">
-          ${this._swingButton("fixed 1", 0, "Top", selectedSwing, controlsDisabled)}
-          ${this._swingButton("fixed 3", 2, "Middle", selectedSwing, controlsDisabled)}
-          ${this._swingButton("fixed 5", 4, "Bottom", selectedSwing, controlsDisabled)}
+          <div class="swing-buttons">
+            ${this._swingButton("fixed 1", 0, "Top", selectedSwing, controlsDisabled)}
+            ${this._swingButton("fixed 3", 2, "Middle", selectedSwing, controlsDisabled)}
+            ${this._swingButton("fixed 5", 4, "Bottom", selectedSwing, controlsDisabled)}
+          </div>
+          ${otherSwingMode ? `<span class="swing-state">${this._escape(this._formatState(otherSwingMode))}</span>` : ""}
         </div>
       </ha-card>`;
 
@@ -118,7 +130,7 @@ class ClimateFlowAcCard extends HTMLElement {
   _handleAction(button, state) {
     const action = button.dataset.action;
     if (action === "power") {
-      this._hass.callService("climate", this._isOff(state) ? "turn_on" : "turn_off", {
+      this._hass.callService("climate", this._isOff(state) || this._isCleaning(state) ? "turn_on" : "turn_off", {
         entity_id: this._config.entity,
       });
       return;
@@ -142,6 +154,10 @@ class ClimateFlowAcCard extends HTMLElement {
     return String(value).replace(/[&<>'"]/g, (character) => ({
       "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;",
     })[character]);
+  }
+
+  _formatState(value) {
+    return String(value).replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
   }
 }
 

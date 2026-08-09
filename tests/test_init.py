@@ -37,6 +37,9 @@ def test_ac_card_asset_declares_the_supported_controls() -> None:
     assert "power-cleaning" in card
     assert "power-on" in card
     assert "power-off" in card
+    assert "swing-state" in card
+    assert "mode-state" in card
+    assert "border: 3px" in card
 
 
 def test_config_entry_only_schema_accepts_empty_configuration() -> None:

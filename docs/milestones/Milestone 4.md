@@ -15,6 +15,7 @@ Climate Flow.
 - Card-picker registration and `climate`-entity suggestion
 - Climate entity name and current target temperature
 - Current measured temperature when the climate entity exposes it
+- Current HVAC action or mode and the current unmapped swing-mode name
 - A power button
 - Target-temperature decrement and increment buttons
 - Three vertical swing-direction buttons

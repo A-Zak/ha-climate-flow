@@ -62,7 +62,9 @@ cleaning_states:
 
 It displays the entity's `current_temperature` whenever available. The power
 button is green while active, red while off or unavailable, and blue with a
-dashed outline during a configured cleaning state.
+dashed outline during a configured cleaning state. It also displays the current
+HVAC action or mode and highlights a mapped swing position; another swing mode
+is shown by name beside the direction controls.
 
 ## Development
 

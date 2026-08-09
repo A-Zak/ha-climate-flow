@@ -67,8 +67,8 @@ HVAC action or mode and highlights a mapped swing position; another swing mode
 is shown by name beside the direction controls. The three-dots button opens
 Home Assistant's standard full climate-control dialog.
 
-An active `self_cleaning` climate attribute is also treated as cleaning, even
-if the entity's main state remains `off`.
+An active `self_cleaning` attribute or a `preset_mode` of `cleaning` is also
+treated as cleaning, even if the entity's main state remains `cool` or `off`.
 
 ## Development
 

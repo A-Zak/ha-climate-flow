@@ -31,6 +31,7 @@ class ClimateFlowAcCard extends HTMLElement {
     const cleaningStates = this._config.cleaning_states ?? ["cleaning"];
     return cleaningStates.includes(state.state)
       || cleaningStates.includes(state.attributes.hvac_action)
+      || cleaningStates.includes(state.attributes.preset_mode)
       || this._isEnabled(state.attributes.self_cleaning);
   }
 

@@ -56,7 +56,13 @@ entity: climate.example_ac
 off_states:
   - off
   - drying
+cleaning_states:
+  - drying
 ```
+
+It displays the entity's `current_temperature` whenever available. The power
+button is green while active, red while off or unavailable, and blue with a
+dashed outline during a configured cleaning state.
 
 ## Development
 

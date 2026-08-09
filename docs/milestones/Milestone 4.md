@@ -14,6 +14,7 @@ Climate Flow.
 - A JavaScript Lovelace card served by this integration
 - Card-picker registration and `climate`-entity suggestion
 - Climate entity name and current target temperature
+- Current measured temperature when the climate entity exposes it
 - A power button
 - Target-temperature decrement and increment buttons
 - Three vertical swing-direction buttons
@@ -36,6 +37,11 @@ When the entity state is one of these values, the power button is shown off and
 pressing it calls `climate.turn_on`. Otherwise the button calls
 `climate.turn_off`. This affects only the card display and button behavior; it
 does not alter the climate integration's underlying state.
+
+The power control is green while active, red while off or unavailable, and
+blue with a dashed outline while in a cleaning state. `cleaning_states`
+defaults to `cleaning`; configure it separately when the integration uses a
+different cleaning-state value.
 
 ## Swing directions
 
@@ -67,6 +73,8 @@ entity: climate.example_ac
 name: Bedroom AC
 off_states:
   - off
+  - cleaning
+cleaning_states:
   - cleaning
 ```
 

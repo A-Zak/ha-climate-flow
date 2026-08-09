@@ -16,6 +16,7 @@ Climate Flow.
 - Climate entity name and current target temperature
 - Current measured temperature when the climate entity exposes it
 - Current HVAC action or mode and the current unmapped swing-mode name
+- A more-options button that opens Home Assistant's standard climate dialog
 - A power button
 - Target-temperature decrement and increment buttons
 - Three vertical swing-direction buttons

@@ -67,7 +67,9 @@ class ClimateFlowAcCard extends HTMLElement {
         ha-card { padding: 16px; }
         .header, .temperature, .swing { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
         .header { margin-bottom: 20px; font-size: 1.1em; font-weight: 500; }
-        .header-left { display: grid; gap: 2px; }
+        .header-left { align-items: center; display: flex; gap: 8px; }
+        .title { display: grid; gap: 2px; }
+        .more-info { font-size: 1.3em; line-height: 1; min-height: 36px; min-width: 36px; padding: 0; }
         .mode-state, .swing-state { color: var(--secondary-text-color); font-size: 0.8em; font-weight: 400; }
         .temperature { justify-content: center; margin-bottom: 4px; }
         .temperature-value { min-width: 4.5em; text-align: center; font-size: 2em; font-weight: 400; }
@@ -88,8 +90,11 @@ class ClimateFlowAcCard extends HTMLElement {
       <ha-card>
         <div class="header">
           <div class="header-left">
-            <span>${this._escape(name)}</span>
-            <span class="mode-state">${this._escape(this._formatState(mode))}</span>
+            <button class="more-info" data-action="more-info" aria-label="Open climate controls" title="Open climate controls">⋮</button>
+            <div class="title">
+              <span>${this._escape(name)}</span>
+              <span class="mode-state">${this._escape(this._formatState(mode))}</span>
+            </div>
           </div>
           <button class="power ${powerClass}" data-action="power" aria-label="${powerLabel}" title="${powerLabel}" ${isUnavailable ? "disabled" : ""}>⏻</button>
         </div>
@@ -129,6 +134,18 @@ class ClimateFlowAcCard extends HTMLElement {
 
   _handleAction(button, state) {
     const action = button.dataset.action;
+    if (action === "more-info") {
+      const event = new Event("hass-action", { bubbles: true, composed: true });
+      event.detail = {
+        config: {
+          entity: this._config.entity,
+          tap_action: { action: "more-info" },
+        },
+        action: "tap",
+      };
+      this.dispatchEvent(event);
+      return;
+    }
     if (action === "power") {
       this._hass.callService("climate", this._isOff(state) || this._isCleaning(state) ? "turn_on" : "turn_off", {
         entity_id: this._config.entity,

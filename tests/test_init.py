@@ -55,6 +55,8 @@ def test_ac_card_asset_declares_the_supported_controls() -> None:
     assert 'type="range"' in card
     assert "toggle-temperature-slider" in card
     assert "temperature-slider" in card
+    assert "temperature-section" in card
+    assert "bottom: calc(100% + 4px)" in card
 
 
 def test_config_entry_only_schema_accepts_empty_configuration() -> None:

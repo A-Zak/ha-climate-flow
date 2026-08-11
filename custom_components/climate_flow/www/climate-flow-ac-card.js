@@ -19,7 +19,7 @@ class ClimateFlowAcCard extends HTMLElement {
   }
 
   getCardSize() {
-    return this._sliderOpen ? 4 : 3;
+    return 3;
   }
 
   _isOff(state) {
@@ -85,11 +85,12 @@ class ClimateFlowAcCard extends HTMLElement {
         .title { display: grid; gap: 2px; }
         .more-info { font-size: 1.3em; line-height: 1; min-height: 36px; min-width: 36px; padding: 0; }
         .mode-state, .swing-state { color: var(--secondary-text-color); font-size: 0.8em; font-weight: 400; }
+        .temperature-section { position: relative; }
         .temperature { display: grid; gap: 8px; grid-template-columns: 40px minmax(4.5em, auto) 40px; justify-content: center; margin: 0 auto 4px; max-width: 200px; width: 100%; }
         .temperature-value { min-width: 4.5em; text-align: center; font-size: 2em; font-weight: 400; }
         .temperature-trigger { background: transparent; border: 0; border-radius: 4px; min-height: 0; min-width: 0; padding: 0; }
         .temperature-trigger:active:not(:disabled) { background: var(--secondary-background-color); color: var(--primary-text-color); }
-        .temperature-slider-row { align-items: center; display: flex; gap: 8px; margin: 8px auto 12px; max-width: 260px; width: 100%; }
+        .temperature-slider-row { align-items: center; background: var(--ha-card-background, var(--card-background-color)); bottom: calc(100% + 4px); box-sizing: border-box; display: flex; gap: 8px; left: 50%; margin: 0; max-width: 260px; padding: 4px 8px; position: absolute; transform: translateX(-50%); width: 100%; z-index: 1; }
         .temperature-slider { accent-color: var(--primary-color); flex: 1; min-width: 0; }
         .temperature-slider-value { font-variant-numeric: tabular-nums; min-width: 3em; text-align: right; }
         .slider-work-indicator { animation: rotate-work-indicator 0.8s linear infinite; border: 2px solid transparent; border-radius: 50%; border-right-color: var(--primary-color); border-top-color: var(--primary-color); box-shadow: 0 0 6px var(--primary-color); height: 14px; width: 14px; }
@@ -121,12 +122,14 @@ class ClimateFlowAcCard extends HTMLElement {
           </div>
           <button class="power ${powerClass}" data-action="power" aria-label="${powerLabel}" title="${powerLabel}" ${isUnavailable || this._isActionPending(powerActionId) ? "disabled" : ""}>${this._buttonContent("⏻", this._isActionPending(powerActionId))}</button>
         </div>
-        <div class="temperature">
-          <button data-action="temperature" data-offset="-${step}" aria-label="Decrease temperature" ${controlsDisabled} ${canDecrease && !this._isActionPending(decreaseActionId) ? "" : "disabled"}>${this._buttonContent("−", this._isActionPending(decreaseActionId))}</button>
-          <button class="temperature-value temperature-trigger" data-action="toggle-temperature-slider" aria-label="Set target temperature" title="Set target temperature" ${controlsDisabled || !canUseTemperatureSlider ? "disabled" : ""}>${Number.isFinite(temperature) ? `${temperature} ${this._escape(attributes.temperature_unit ?? "°")}` : "—"}</button>
-          <button data-action="temperature" data-offset="${step}" aria-label="Increase temperature" ${controlsDisabled} ${canIncrease && !this._isActionPending(increaseActionId) ? "" : "disabled"}>${this._buttonContent("+", this._isActionPending(increaseActionId))}</button>
+        <div class="temperature-section">
+          ${this._sliderOpen && canUseTemperatureSlider ? `<div class="temperature-slider-row"><input class="temperature-slider" data-action="temperature-slider" type="range" min="${minimum}" max="${maximum}" step="${step}" value="${sliderTemperature}" aria-label="Target temperature" ${this._isActionPending("temperature-slider") ? "disabled" : ""}><span class="temperature-slider-value">${sliderTemperature} ${this._escape(attributes.temperature_unit ?? "°")}</span>${this._isActionPending("temperature-slider") ? '<span class="slider-work-indicator" aria-label="Setting temperature"></span>' : ""}</div>` : ""}
+          <div class="temperature">
+            <button data-action="temperature" data-offset="-${step}" aria-label="Decrease temperature" ${controlsDisabled} ${canDecrease && !this._isActionPending(decreaseActionId) ? "" : "disabled"}>${this._buttonContent("−", this._isActionPending(decreaseActionId))}</button>
+            <button class="temperature-value temperature-trigger" data-action="toggle-temperature-slider" aria-label="Set target temperature" title="Set target temperature" ${controlsDisabled || !canUseTemperatureSlider ? "disabled" : ""}>${Number.isFinite(temperature) ? `${temperature} ${this._escape(attributes.temperature_unit ?? "°")}` : "—"}</button>
+            <button data-action="temperature" data-offset="${step}" aria-label="Increase temperature" ${controlsDisabled} ${canIncrease && !this._isActionPending(increaseActionId) ? "" : "disabled"}>${this._buttonContent("+", this._isActionPending(increaseActionId))}</button>
+          </div>
         </div>
-        ${this._sliderOpen && canUseTemperatureSlider ? `<div class="temperature-slider-row"><input class="temperature-slider" data-action="temperature-slider" type="range" min="${minimum}" max="${maximum}" step="${step}" value="${sliderTemperature}" aria-label="Target temperature" ${this._isActionPending("temperature-slider") ? "disabled" : ""}><span class="temperature-slider-value">${sliderTemperature} ${this._escape(attributes.temperature_unit ?? "°")}</span>${this._isActionPending("temperature-slider") ? '<span class="slider-work-indicator" aria-label="Setting temperature"></span>' : ""}</div>` : ""}
         ${Number.isFinite(currentTemperature) ? `<div class="current-temperature">Current: ${currentTemperature} ${this._escape(attributes.temperature_unit ?? "°")}</div>` : ""}
         <div class="swing" aria-label="Vertical swing direction">
           <div class="swing-buttons">

@@ -67,6 +67,9 @@ HVAC action or mode and highlights a mapped swing position; another swing mode
 is shown by name beside the direction controls. The three-dots button opens
 Home Assistant's standard full climate-control dialog.
 
+When a card control sends a climate command, that control shows a short
+glowing rotating indicator until Home Assistant accepts or rejects the action.
+
 An active `self_cleaning` attribute or a `preset_mode` of `cleaning` is also
 treated as cleaning, even if the entity's main state remains `cool` or `off`.
 

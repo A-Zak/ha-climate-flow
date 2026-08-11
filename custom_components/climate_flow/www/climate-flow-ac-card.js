@@ -65,6 +65,9 @@ class ClimateFlowAcCard extends HTMLElement {
     const controlsDisabled = isOff || isUnavailable ? "disabled" : "";
     const powerClass = isCleaning ? "power-cleaning" : isOff || isUnavailable ? "power-off" : "power-on";
     const powerLabel = isCleaning ? "Cleaning" : isUnavailable ? "Unavailable" : isOff ? "Turn on" : "Turn off";
+    const powerActionId = "power";
+    const decreaseActionId = `temperature:-${step}`;
+    const increaseActionId = `temperature:${step}`;
 
     this.innerHTML = `
       <style>
@@ -81,9 +84,12 @@ class ClimateFlowAcCard extends HTMLElement {
         .current-temperature { color: var(--secondary-text-color); font-size: 0.9em; margin-bottom: 18px; text-align: center; }
         .swing { justify-content: center; }
         .swing-buttons { display: flex; gap: 12px; }
-        button { border: 3px solid transparent; border-radius: 50%; background: var(--secondary-background-color); color: var(--primary-text-color); cursor: pointer; font: inherit; min-width: 44px; min-height: 44px; padding: 8px; }
+        button { border: 3px solid transparent; border-radius: 50%; background: var(--secondary-background-color); color: var(--primary-text-color); cursor: pointer; font: inherit; min-width: 44px; min-height: 44px; padding: 8px; position: relative; }
         button:active:not(:disabled), button.selected { background: var(--primary-color); color: var(--text-primary-color); }
         button:disabled { cursor: default; opacity: 0.45; }
+        .button-label { align-items: center; display: inline-flex; height: 100%; justify-content: center; width: 100%; }
+        .work-indicator { animation: rotate-work-indicator 0.8s linear infinite; border: 3px solid transparent; border-radius: inherit; border-right-color: var(--primary-color); border-top-color: var(--primary-color); box-shadow: 0 0 8px var(--primary-color); inset: -3px; pointer-events: none; position: absolute; }
+        @keyframes rotate-work-indicator { to { transform: rotate(360deg); } }
         .swing-icon { display: block; height: 28px; margin: auto; width: 28px; }
         .swing-ray { fill: none; opacity: 0.28; stroke: currentColor; stroke-linecap: round; stroke-width: 2.5; }
         .swing-ray.active { opacity: 1; stroke-width: 4; }
@@ -101,12 +107,12 @@ class ClimateFlowAcCard extends HTMLElement {
               <span class="mode-state">${this._escape(this._formatState(mode))}</span>
             </div>
           </div>
-          <button class="power ${powerClass}" data-action="power" aria-label="${powerLabel}" title="${powerLabel}" ${isUnavailable ? "disabled" : ""}>⏻</button>
+          <button class="power ${powerClass}" data-action="power" aria-label="${powerLabel}" title="${powerLabel}" ${isUnavailable || this._isActionPending(powerActionId) ? "disabled" : ""}>${this._buttonContent("⏻", this._isActionPending(powerActionId))}</button>
         </div>
         <div class="temperature">
-          <button data-action="temperature" data-offset="-${step}" aria-label="Decrease temperature" ${controlsDisabled} ${canDecrease ? "" : "disabled"}>−</button>
+          <button data-action="temperature" data-offset="-${step}" aria-label="Decrease temperature" ${controlsDisabled} ${canDecrease && !this._isActionPending(decreaseActionId) ? "" : "disabled"}>${this._buttonContent("−", this._isActionPending(decreaseActionId))}</button>
           <span class="temperature-value">${Number.isFinite(temperature) ? `${temperature} ${this._escape(attributes.temperature_unit ?? "°")}` : "—"}</span>
-          <button data-action="temperature" data-offset="${step}" aria-label="Increase temperature" ${controlsDisabled} ${canIncrease ? "" : "disabled"}>+</button>
+          <button data-action="temperature" data-offset="${step}" aria-label="Increase temperature" ${controlsDisabled} ${canIncrease && !this._isActionPending(increaseActionId) ? "" : "disabled"}>${this._buttonContent("+", this._isActionPending(increaseActionId))}</button>
         </div>
         ${Number.isFinite(currentTemperature) ? `<div class="current-temperature">Current: ${currentTemperature} ${this._escape(attributes.temperature_unit ?? "°")}</div>` : ""}
         <div class="swing" aria-label="Vertical swing direction">
@@ -126,7 +132,8 @@ class ClimateFlowAcCard extends HTMLElement {
 
   _swingButton(value, highlightedIndex, label, selectedSwing, disabled) {
     const selected = this._normalizeSwingMode(value) === this._normalizeSwingMode(selectedSwing) ? "selected" : "";
-    return `<button class="${selected}" data-action="swing" data-swing="${value}" aria-label="Set swing ${label.toLowerCase()}" title="Swing ${label}" ${disabled}>${this._swingIcon(highlightedIndex)}</button>`;
+    const pending = this._isActionPending(`swing:${value}`);
+    return `<button class="${selected}" data-action="swing" data-swing="${value}" aria-label="Set swing ${label.toLowerCase()}" title="Swing ${label}" ${disabled || pending ? "disabled" : ""}>${this._buttonContent(this._swingIcon(highlightedIndex), pending)}</button>`;
   }
 
   _swingIcon(highlightedIndex) {
@@ -137,7 +144,7 @@ class ClimateFlowAcCard extends HTMLElement {
     return `<svg class="swing-icon" viewBox="0 0 40 40" aria-hidden="true">${rays}</svg>`;
   }
 
-  _handleAction(button, state) {
+  async _handleAction(button, state) {
     const action = button.dataset.action;
     if (action === "more-info") {
       const event = new Event("hass-action", { bubbles: true, composed: true });
@@ -151,29 +158,63 @@ class ClimateFlowAcCard extends HTMLElement {
       this.dispatchEvent(event);
       return;
     }
-    if (action === "power") {
-      this._hass.callService("climate", this._isOff(state) || this._isCleaning(state) ? "turn_on" : "turn_off", {
+    const actionId = this._actionId(button);
+    if (!this._startAction(actionId)) return;
+    try {
+      if (action === "power") {
+        await this._hass.callService("climate", this._isOff(state) || this._isCleaning(state) ? "turn_on" : "turn_off", {
+          entity_id: this._config.entity,
+        });
+        return;
+      }
+      if (action === "temperature") {
+        const current = Number(state.attributes.temperature);
+        if (!Number.isFinite(current)) return;
+        await this._hass.callService("climate", "set_temperature", {
+          entity_id: this._config.entity,
+          temperature: current + Number(button.dataset.offset),
+        });
+        return;
+      }
+      const requestedSwingMode = button.dataset.swing;
+      const swingMode = state.attributes.swing_modes?.find(
+        (mode) => this._normalizeSwingMode(mode) === this._normalizeSwingMode(requestedSwingMode),
+      ) ?? requestedSwingMode;
+      await this._hass.callService("climate", "set_swing_mode", {
         entity_id: this._config.entity,
+        swing_mode: swingMode,
       });
-      return;
+    } catch {
+      // The Home Assistant frontend reports the action error; always clear feedback.
+    } finally {
+      this._finishAction(actionId);
     }
-    if (action === "temperature") {
-      const current = Number(state.attributes.temperature);
-      if (!Number.isFinite(current)) return;
-      this._hass.callService("climate", "set_temperature", {
-        entity_id: this._config.entity,
-        temperature: current + Number(button.dataset.offset),
-      });
-      return;
-    }
-    const requestedSwingMode = button.dataset.swing;
-    const swingMode = state.attributes.swing_modes?.find(
-      (mode) => this._normalizeSwingMode(mode) === this._normalizeSwingMode(requestedSwingMode),
-    ) ?? requestedSwingMode;
-    this._hass.callService("climate", "set_swing_mode", {
-      entity_id: this._config.entity,
-      swing_mode: swingMode,
-    });
+  }
+
+  _actionId(button) {
+    if (button.dataset.action === "power") return "power";
+    return `${button.dataset.action}:${button.dataset.offset ?? button.dataset.swing}`;
+  }
+
+  _startAction(actionId) {
+    this._pendingActions ??= new Set();
+    if (this._pendingActions.has(actionId)) return false;
+    this._pendingActions.add(actionId);
+    this._render();
+    return true;
+  }
+
+  _finishAction(actionId) {
+    this._pendingActions.delete(actionId);
+    this._render();
+  }
+
+  _isActionPending(actionId) {
+    return this._pendingActions?.has(actionId) ?? false;
+  }
+
+  _buttonContent(content, pending) {
+    return `<span class="button-label">${content}</span>${pending ? '<span class="work-indicator" aria-hidden="true"></span>' : ""}`;
   }
 
   _escape(value) {

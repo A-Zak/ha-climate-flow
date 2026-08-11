@@ -49,6 +49,9 @@ def test_ac_card_asset_declares_the_supported_controls() -> None:
     assert "preset_mode" in card
     assert "attributes.swing_modes" in card
     assert "button:active:not(:disabled)" in card
+    assert "work-indicator" in card
+    assert "@keyframes rotate-work-indicator" in card
+    assert "await this._hass.callService" in card
 
 
 def test_config_entry_only_schema_accepts_empty_configuration() -> None:

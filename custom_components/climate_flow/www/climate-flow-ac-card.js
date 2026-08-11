@@ -19,7 +19,7 @@ class ClimateFlowAcCard extends HTMLElement {
   }
 
   getCardSize() {
-    return 3;
+    return this._sliderOpen ? 4 : 3;
   }
 
   _isOff(state) {
@@ -55,6 +55,12 @@ class ClimateFlowAcCard extends HTMLElement {
     const maximum = Number(attributes.max_temp);
     const canDecrease = !Number.isFinite(temperature) || !Number.isFinite(minimum) || temperature > minimum;
     const canIncrease = !Number.isFinite(temperature) || !Number.isFinite(maximum) || temperature < maximum;
+    const canUseTemperatureSlider = Number.isFinite(temperature)
+      && Number.isFinite(minimum)
+      && Number.isFinite(maximum);
+    const sliderTemperature = Number.isFinite(this._sliderTemperature)
+      ? this._sliderTemperature
+      : temperature;
     const name = this._config.name ?? attributes.friendly_name ?? this._config.entity;
     const mode = isCleaning ? "cleaning" : attributes.hvac_action ?? state.state;
     const reportedSwingMode = attributes.swing_mode;
@@ -81,6 +87,12 @@ class ClimateFlowAcCard extends HTMLElement {
         .mode-state, .swing-state { color: var(--secondary-text-color); font-size: 0.8em; font-weight: 400; }
         .temperature { display: grid; gap: 8px; grid-template-columns: 40px minmax(4.5em, auto) 40px; justify-content: center; margin: 0 auto 4px; max-width: 200px; width: 100%; }
         .temperature-value { min-width: 4.5em; text-align: center; font-size: 2em; font-weight: 400; }
+        .temperature-trigger { background: transparent; border: 0; border-radius: 4px; min-height: 0; min-width: 0; padding: 0; }
+        .temperature-trigger:active:not(:disabled) { background: var(--secondary-background-color); color: var(--primary-text-color); }
+        .temperature-slider-row { align-items: center; display: flex; gap: 8px; margin: 8px auto 12px; max-width: 260px; width: 100%; }
+        .temperature-slider { accent-color: var(--primary-color); flex: 1; min-width: 0; }
+        .temperature-slider-value { font-variant-numeric: tabular-nums; min-width: 3em; text-align: right; }
+        .slider-work-indicator { animation: rotate-work-indicator 0.8s linear infinite; border: 2px solid transparent; border-radius: 50%; border-right-color: var(--primary-color); border-top-color: var(--primary-color); box-shadow: 0 0 6px var(--primary-color); height: 14px; width: 14px; }
         .current-temperature { color: var(--secondary-text-color); font-size: 0.9em; margin-bottom: 18px; text-align: center; }
         .swing { justify-content: center; }
         .swing-buttons { display: flex; gap: 12px; }
@@ -111,9 +123,10 @@ class ClimateFlowAcCard extends HTMLElement {
         </div>
         <div class="temperature">
           <button data-action="temperature" data-offset="-${step}" aria-label="Decrease temperature" ${controlsDisabled} ${canDecrease && !this._isActionPending(decreaseActionId) ? "" : "disabled"}>${this._buttonContent("−", this._isActionPending(decreaseActionId))}</button>
-          <span class="temperature-value">${Number.isFinite(temperature) ? `${temperature} ${this._escape(attributes.temperature_unit ?? "°")}` : "—"}</span>
+          <button class="temperature-value temperature-trigger" data-action="toggle-temperature-slider" aria-label="Set target temperature" title="Set target temperature" ${controlsDisabled || !canUseTemperatureSlider ? "disabled" : ""}>${Number.isFinite(temperature) ? `${temperature} ${this._escape(attributes.temperature_unit ?? "°")}` : "—"}</button>
           <button data-action="temperature" data-offset="${step}" aria-label="Increase temperature" ${controlsDisabled} ${canIncrease && !this._isActionPending(increaseActionId) ? "" : "disabled"}>${this._buttonContent("+", this._isActionPending(increaseActionId))}</button>
         </div>
+        ${this._sliderOpen && canUseTemperatureSlider ? `<div class="temperature-slider-row"><input class="temperature-slider" data-action="temperature-slider" type="range" min="${minimum}" max="${maximum}" step="${step}" value="${sliderTemperature}" aria-label="Target temperature" ${this._isActionPending("temperature-slider") ? "disabled" : ""}><span class="temperature-slider-value">${sliderTemperature} ${this._escape(attributes.temperature_unit ?? "°")}</span>${this._isActionPending("temperature-slider") ? '<span class="slider-work-indicator" aria-label="Setting temperature"></span>' : ""}</div>` : ""}
         ${Number.isFinite(currentTemperature) ? `<div class="current-temperature">Current: ${currentTemperature} ${this._escape(attributes.temperature_unit ?? "°")}</div>` : ""}
         <div class="swing" aria-label="Vertical swing direction">
           <div class="swing-buttons">
@@ -127,6 +140,14 @@ class ClimateFlowAcCard extends HTMLElement {
 
     this.querySelectorAll("button").forEach((button) => {
       button.addEventListener("click", () => this._handleAction(button, state));
+    });
+    const slider = this.querySelector('[data-action="temperature-slider"]');
+    slider?.addEventListener("input", () => {
+      this._sliderTemperature = Number(slider.value);
+      this.querySelector(".temperature-slider-value").textContent = `${slider.value} ${attributes.temperature_unit ?? "°"}`;
+    });
+    slider?.addEventListener("change", () => {
+      this._asyncSetSliderTemperature(Number(slider.value), state);
     });
   }
 
@@ -156,6 +177,12 @@ class ClimateFlowAcCard extends HTMLElement {
         action: "tap",
       };
       this.dispatchEvent(event);
+      return;
+    }
+    if (action === "toggle-temperature-slider") {
+      this._sliderOpen = !this._sliderOpen;
+      this._sliderTemperature = Number(state.attributes.temperature);
+      this._render();
       return;
     }
     const actionId = this._actionId(button);
@@ -194,6 +221,23 @@ class ClimateFlowAcCard extends HTMLElement {
   _actionId(button) {
     if (button.dataset.action === "power") return "power";
     return `${button.dataset.action}:${button.dataset.offset ?? button.dataset.swing}`;
+  }
+
+  async _asyncSetSliderTemperature(temperature, state) {
+    const actionId = "temperature-slider";
+    if (!Number.isFinite(temperature) || !this._startAction(actionId)) return;
+    try {
+      await this._hass.callService("climate", "set_temperature", {
+        entity_id: this._config.entity,
+        temperature,
+      });
+    } catch {
+      // The Home Assistant frontend reports the action error; always clear feedback.
+    } finally {
+      this._sliderOpen = false;
+      this._sliderTemperature = undefined;
+      this._finishAction(actionId);
+    }
   }
 
   _startAction(actionId) {

@@ -52,6 +52,9 @@ def test_ac_card_asset_declares_the_supported_controls() -> None:
     assert "work-indicator" in card
     assert "@keyframes rotate-work-indicator" in card
     assert "await this._hass.callService" in card
+    assert 'type="range"' in card
+    assert "toggle-temperature-slider" in card
+    assert "temperature-slider" in card
 
 
 def test_config_entry_only_schema_accepts_empty_configuration() -> None:

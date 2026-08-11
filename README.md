@@ -69,6 +69,8 @@ Home Assistant's standard full climate-control dialog.
 
 When a card control sends a climate command, that control shows a short
 glowing rotating indicator until Home Assistant accepts or rejects the action.
+Click the target temperature to reveal a slider using the entity's supported
+temperature range and step; releasing it sends the selected target temperature.
 
 An active `self_cleaning` attribute or a `preset_mode` of `cleaning` is also
 treated as cleaning, even if the entity's main state remains `cool` or `off`.

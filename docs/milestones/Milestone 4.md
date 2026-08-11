@@ -19,6 +19,7 @@ Climate Flow.
 - A more-options button that opens Home Assistant's standard climate dialog
 - A power button
 - Target-temperature decrement and increment buttons
+- An on-demand target-temperature slider that applies its value on release
 - Three vertical swing-direction buttons
 - Configurable states that should be displayed as power-off
 - Per-button in-progress feedback for climate service actions

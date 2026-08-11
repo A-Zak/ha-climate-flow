@@ -82,7 +82,7 @@ class ClimateFlowAcCard extends HTMLElement {
         .swing { justify-content: center; }
         .swing-buttons { display: flex; gap: 12px; }
         button { border: 3px solid transparent; border-radius: 50%; background: var(--secondary-background-color); color: var(--primary-text-color); cursor: pointer; font: inherit; min-width: 44px; min-height: 44px; padding: 8px; }
-        button:hover:not(:disabled), button.selected { background: var(--primary-color); color: var(--text-primary-color); }
+        button:active:not(:disabled), button.selected { background: var(--primary-color); color: var(--text-primary-color); }
         button:disabled { cursor: default; opacity: 0.45; }
         .swing-icon { display: block; height: 28px; margin: auto; width: 28px; }
         .swing-ray { fill: none; opacity: 0.28; stroke: currentColor; stroke-linecap: round; stroke-width: 2.5; }
@@ -166,9 +166,13 @@ class ClimateFlowAcCard extends HTMLElement {
       });
       return;
     }
+    const requestedSwingMode = button.dataset.swing;
+    const swingMode = state.attributes.swing_modes?.find(
+      (mode) => this._normalizeSwingMode(mode) === this._normalizeSwingMode(requestedSwingMode),
+    ) ?? requestedSwingMode;
     this._hass.callService("climate", "set_swing_mode", {
       entity_id: this._config.entity,
-      swing_mode: button.dataset.swing,
+      swing_mode: swingMode,
     });
   }
 

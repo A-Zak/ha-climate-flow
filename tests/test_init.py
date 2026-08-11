@@ -47,6 +47,8 @@ def test_ac_card_asset_declares_the_supported_controls() -> None:
     assert "_lastActiveSwingMode" not in card
     assert "self_cleaning" in card
     assert "preset_mode" in card
+    assert "attributes.swing_modes" in card
+    assert "button:active:not(:disabled)" in card
 
 
 def test_config_entry_only_schema_accepts_empty_configuration() -> None:

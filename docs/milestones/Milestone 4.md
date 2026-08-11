@@ -57,7 +57,9 @@ The card maps its three direction buttons to these raw `swing_mode` values:
 | Bottom | `fixed 5` |
 
 The selected button reflects the climate entity's current `swing_mode`. The
-card deliberately does not send an automatic or continuous swing value.
+card resolves these labels to the exact value advertised in the entity's
+`swing_modes` list before calling the service. It deliberately does not send
+an automatic or continuous swing value.
 
 ## Card configuration
 

@@ -103,6 +103,7 @@ class ClimateFlowAcCard extends HTMLElement {
         .transition-panel { background: var(--secondary-background-color); border-radius: 10px; margin-bottom: 18px; padding: 12px; }
         .transition-panel-title { align-items: center; color: var(--warning-color, #ff9800); display: flex; font-size: 0.78em; font-weight: 700; gap: 6px; letter-spacing: 0.02em; margin-bottom: 10px; text-transform: uppercase; }
         .transition-field-label { color: var(--secondary-text-color); font-size: 0.78em; font-weight: 600; margin: 0 0 6px; }
+        .transition-static-label { color: var(--primary-text-color); font-size: 0.85em; font-weight: 600; margin: 0 0 12px; }
         .transition-chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
         .transition-chip { aspect-ratio: auto; background: var(--card-background-color, var(--ha-card-background)); border: 1.5px solid var(--divider-color); border-radius: 999px; color: var(--primary-text-color); cursor: pointer; font-size: 0.8em; font-weight: 600; min-height: 0; min-width: 0; padding: 6px 12px; }
         .transition-chip.selected { background: var(--warning-color, #ff9800); border-color: var(--warning-color, #ff9800); color: #fff; }
@@ -207,11 +208,12 @@ class ClimateFlowAcCard extends HTMLElement {
     const minimum = Number(attributes.min_temp) || 16;
     const maximum = Number(attributes.max_temp) || 30;
     const minutes = this._transitionMinutes ?? 30;
-    const target = this._transitionTarget ?? "off";
+    const currentlyOff = this._isOff(state) || this._isCleaning(state);
+    const target = currentlyOff ? "temp" : (this._transitionTarget ?? "off");
     const temperature = Number.isFinite(this._transitionTemperature)
       ? this._transitionTemperature
       : Math.round(Number(attributes.temperature)) || minimum;
-    const goal = target === "temp" ? `${temperature}°` : target === "on" ? "On" : "Off";
+    const goal = target === "temp" ? (currentlyOff ? `On, ${temperature}°` : `${temperature}°`) : "Off";
     const quickOptions = [15, 30, 60, 120];
     return `
       <div class="transition-panel">
@@ -226,11 +228,12 @@ class ClimateFlowAcCard extends HTMLElement {
           <button data-action="transition-minutes-step" data-step="5" aria-label="Increase delay">+</button>
         </div>
         <p class="transition-field-label">Then</p>
-        <div class="transition-segmented">
-          <button class="${target === "off" ? "selected" : ""}" data-action="transition-target" data-target="off">Turn off</button>
-          <button class="${target === "on" ? "selected" : ""}" data-action="transition-target" data-target="on">Turn on</button>
-          <button class="${target === "temp" ? "selected" : ""}" data-action="transition-target" data-target="temp">Set temp</button>
-        </div>
+        ${currentlyOff
+          ? `<p class="transition-static-label">Turn on and set temperature</p>`
+          : `<div class="transition-segmented">
+              <button class="${target === "off" ? "selected" : ""}" data-action="transition-target" data-target="off">Turn off</button>
+              <button class="${target === "temp" ? "selected" : ""}" data-action="transition-target" data-target="temp">Set temp</button>
+            </div>`}
         ${target === "temp" ? `<div class="transition-stepper">
           <button data-action="transition-temperature-step" data-step="-1" aria-label="Decrease temperature">−</button>
           <span class="transition-stepper-value">${temperature} ${this._escape(attributes.temperature_unit ?? "°")}</span>
@@ -248,11 +251,12 @@ class ClimateFlowAcCard extends HTMLElement {
       0,
       Math.round((new Date(pendingTransition.fires_at).getTime() - Date.now()) / 1000),
     );
+    const hasTemperature = pendingTransition.temperature_celsius != null;
     const goal = pendingTransition.turn_off
       ? "Off"
-      : pendingTransition.turn_on
-        ? "On"
-        : `${pendingTransition.temperature_celsius}°`;
+      : hasTemperature
+        ? (pendingTransition.turn_on ? `On, ${pendingTransition.temperature_celsius}°` : `${pendingTransition.temperature_celsius}°`)
+        : "On";
     return `${goal} in ${this._formatCountdown(remainingSeconds)}`;
   }
 
@@ -302,13 +306,8 @@ class ClimateFlowAcCard extends HTMLElement {
       this._transitionPanelOpen = !this._transitionPanelOpen;
       if (this._transitionPanelOpen) {
         const pending = this._hass.states[TRANSITIONS_SENSOR]?.attributes?.[this._config.entity];
-        this._transitionTarget = pending
-          ? pending.turn_off
-            ? "off"
-            : pending.turn_on
-              ? "on"
-              : "temp"
-          : "off";
+        const currentlyOff = this._isOff(state) || this._isCleaning(state);
+        this._transitionTarget = currentlyOff ? "temp" : pending?.turn_off ? "off" : "temp";
         this._transitionTemperature = pending?.temperature_celsius ?? Number(state.attributes.temperature);
         this._transitionMinutes = pending
           ? Math.max(5, Math.round((new Date(pending.fires_at).getTime() - Date.now()) / 60000 / 5) * 5)
@@ -349,11 +348,11 @@ class ClimateFlowAcCard extends HTMLElement {
     }
     if (action === "transition-start") {
       this._transitionPanelOpen = false;
+      const currentlyOff = this._isOff(state) || this._isCleaning(state);
       const data = { entity_id: this._config.entity, delay_seconds: (this._transitionMinutes ?? 30) * 60 };
       if (this._transitionTarget === "temp") {
         data.temperature = this._transitionTemperature;
-      } else if (this._transitionTarget === "on") {
-        data.turn_on = true;
+        if (currentlyOff) data.turn_on = true;
       } else {
         data.turn_off = true;
       }
@@ -375,15 +374,35 @@ class ClimateFlowAcCard extends HTMLElement {
       }
       return;
     }
-    const actionId = this._actionId(button);
-    if (!this._startAction(actionId)) return;
-    try {
-      if (action === "power") {
+    if (action === "power") {
+      const pending = this._hass.states[TRANSITIONS_SENSOR]?.attributes?.[this._config.entity];
+      if (
+        pending &&
+        !window.confirm("Turning this AC on or off will cancel its scheduled transition. Continue?")
+      ) {
+        return;
+      }
+      const actionId = this._actionId(button);
+      if (!this._startAction(actionId)) return;
+      try {
+        if (pending) {
+          await this._hass.callService("climate_flow", "cancel_transition", {
+            entity_id: this._config.entity,
+          });
+        }
         await this._hass.callService("climate", this._isOff(state) || this._isCleaning(state) ? "turn_on" : "turn_off", {
           entity_id: this._config.entity,
         });
-        return;
+      } catch {
+        // The Home Assistant frontend reports the action error; always clear feedback.
+      } finally {
+        this._finishAction(actionId);
       }
+      return;
+    }
+    const actionId = this._actionId(button);
+    if (!this._startAction(actionId)) return;
+    try {
       if (action === "temperature") {
         const current = Number(state.attributes.temperature);
         if (!Number.isFinite(current)) return;

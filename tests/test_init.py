@@ -78,12 +78,14 @@ def test_ac_card_asset_declares_the_supported_controls() -> None:
     assert "toggle-transition-panel" in card
     assert "transition-panel" in card
     assert 'data-target="off"' in card
-    assert 'data-target="on"' in card
     assert 'data-target="temp"' in card
+    assert "Turn on and set temperature" in card
+    assert "currentlyOff" in card
     assert "delay_seconds" in card
     assert "_formatCountdown" in card
     assert "_transitionTickInterval" in card
     assert "disconnectedCallback" in card
+    assert "window.confirm" in card
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node.js is not installed")

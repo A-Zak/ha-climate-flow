@@ -15,16 +15,23 @@ class PendingTransition:
     temperature_celsius: float | None = None
 
     def __post_init__(self) -> None:
-        """Reject anything but exactly one target state."""
-        target_states = (
-            self.turn_off,
-            self.turn_on,
-            self.temperature_celsius is not None,
-        )
-        if sum(target_states) != 1:
+        """Reject an invalid combination of target states.
+
+        turn_off is exclusive: it cannot combine with anything else. Turning
+        on and a temperature may combine, representing "turn on to this
+        temperature" for a target that is currently off.
+        """
+        has_temperature = self.temperature_celsius is not None
+        if self.turn_off:
+            if self.turn_on or has_temperature:
+                raise ValueError(
+                    "PendingTransition cannot combine turn_off with turn_on "
+                    "or temperature_celsius"
+                )
+        elif not self.turn_on and not has_temperature:
             raise ValueError(
-                "PendingTransition requires exactly one of turn_off, turn_on, "
-                "or temperature_celsius"
+                "PendingTransition requires turn_off, or turn_on and/or "
+                "temperature_celsius"
             )
 
     def as_dict(self) -> dict[str, str | bool | float]:
@@ -32,8 +39,9 @@ class PendingTransition:
         data: dict[str, str | bool | float] = {"fires_at": self.fires_at.isoformat()}
         if self.turn_off:
             data["turn_off"] = True
-        elif self.turn_on:
+            return data
+        if self.turn_on:
             data["turn_on"] = True
-        else:
+        if self.temperature_celsius is not None:
             data["temperature_celsius"] = self.temperature_celsius
         return data

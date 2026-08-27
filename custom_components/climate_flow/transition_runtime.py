@@ -176,7 +176,12 @@ class TransitionRuntime:
         self._notify()
 
     async def _async_apply(self, transition: PendingTransition) -> None:
-        """Call the Home Assistant climate service for a due transition."""
+        """Call the Home Assistant climate service(s) for a due transition.
+
+        turn_on and a temperature may both be set ("turn on to this
+        temperature", for a target that is currently off), in which case
+        both services are called in order.
+        """
         try:
             if transition.turn_off:
                 await self.hass.services.async_call(
@@ -185,14 +190,15 @@ class TransitionRuntime:
                     {ATTR_ENTITY_ID: transition.target},
                     blocking=True,
                 )
-            elif transition.turn_on:
+                return
+            if transition.turn_on:
                 await self.hass.services.async_call(
                     "climate",
                     SERVICE_TURN_ON,
                     {ATTR_ENTITY_ID: transition.target},
                     blocking=True,
                 )
-            else:
+            if transition.temperature_celsius is not None:
                 await self.hass.services.async_call(
                     "climate",
                     "set_temperature",

@@ -110,19 +110,51 @@ async def test_schedule_transition_schedules_a_turn_on_transition(
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
+async def test_schedule_transition_schedules_turn_on_combined_with_a_temperature(
+    hass: HomeAssistant,
+) -> None:
+    """Test the schema accepts turning on to a specific temperature.
+
+    This is what the card sends for an AC that is currently off: one
+    combined transition, not two independent ones.
+    """
+    hass.states.async_set("climate.bedroom", "off", {ATTR_HVAC_MODES: ["off", "cool"]})
+    entry = MockConfigEntry(domain=DOMAIN, title="Climate Flow", data={})
+    entry.add_to_hass(hass)
+    assert await async_setup_component(hass, DOMAIN, {})
+    await hass.async_block_till_done()
+
+    await hass.services.async_call(
+        DOMAIN,
+        "schedule_transition",
+        {
+            ATTR_ENTITY_ID: "climate.bedroom",
+            "delay_seconds": 30,
+            "turn_on": True,
+            "temperature": 22.0,
+        },
+        blocking=True,
+    )
+
+    pending = entry.runtime_data.transitions.pending("climate.bedroom")
+    assert pending.turn_on is True
+    assert pending.temperature_celsius == 22.0
+    await entry.runtime_data.transitions.async_cancel("climate.bedroom")
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
 @pytest.mark.parametrize(
     "extra_fields",
     [
         {"turn_off": True, "temperature": 22.0},
         {"turn_off": True, "turn_on": True},
-        {"turn_on": True, "temperature": 22.0},
         {},
     ],
 )
-async def test_schedule_transition_requires_exactly_one_target_state(
+async def test_schedule_transition_requires_a_valid_target_state(
     hass: HomeAssistant, extra_fields: dict[str, object]
 ) -> None:
-    """Test the schema rejects any combination but exactly one target state."""
+    """Test the schema rejects turn_off combined with anything, or nothing at all."""
     entry = MockConfigEntry(domain=DOMAIN, title="Climate Flow", data={})
     entry.add_to_hass(hass)
     assert await async_setup_component(hass, DOMAIN, {})

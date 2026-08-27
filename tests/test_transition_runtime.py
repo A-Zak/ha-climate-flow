@@ -81,6 +81,37 @@ async def test_schedule_fires_set_temperature_after_the_delay(
     assert calls[0].data == {ATTR_ENTITY_ID: "climate.bedroom", ATTR_TEMPERATURE: 22.0}
 
 
+async def test_schedule_fires_turn_on_then_set_temperature_when_combined(
+    hass: HomeAssistant,
+) -> None:
+    """Test "turn on to this temperature" powers on before setting the target.
+
+    This is the transition an off AC schedules: a single combined action,
+    not two independent ones.
+    """
+    _add_climate(hass)
+    hass.states.async_set(
+        "climate.bedroom",
+        "off",
+        {ATTR_HVAC_MODES: ["off", "cool"], ATTR_MIN_TEMP: 16, ATTR_MAX_TEMP: 30},
+    )
+    on_calls = async_mock_service(hass, "climate", SERVICE_TURN_ON)
+    temperature_calls = async_mock_service(hass, "climate", SERVICE_SET_TEMPERATURE)
+    runtime = TransitionRuntime(hass)
+
+    await runtime.async_schedule(
+        "climate.bedroom", delay_seconds=0.01, turn_on=True, temperature_celsius=22.0
+    )
+    await asyncio.sleep(0.05)
+    await hass.async_block_till_done()
+
+    assert on_calls[0].data == {ATTR_ENTITY_ID: "climate.bedroom"}
+    assert temperature_calls[0].data == {
+        ATTR_ENTITY_ID: "climate.bedroom",
+        ATTR_TEMPERATURE: 22.0,
+    }
+
+
 async def test_cancel_prevents_the_scheduled_service_call(hass: HomeAssistant) -> None:
     """Test cancelling before the delay elapses suppresses the service call."""
     _add_climate(hass)

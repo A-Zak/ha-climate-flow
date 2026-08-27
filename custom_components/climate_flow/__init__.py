@@ -33,15 +33,19 @@ _LOGGER = logging.getLogger(__name__)
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
-def _require_exactly_one_target_state(value: dict[str, Any]) -> dict[str, Any]:
-    """Reject a schedule_transition call unless it sets exactly one target."""
-    target_states = (
-        value[ATTR_TURN_OFF],
-        value[ATTR_TURN_ON],
-        value.get(ATTR_TEMPERATURE) is not None,
-    )
-    if sum(target_states) != 1:
-        raise vol.Invalid("Specify exactly one of turn_off, turn_on, or temperature")
+def _require_a_valid_target_state(value: dict[str, Any]) -> dict[str, Any]:
+    """Reject a schedule_transition call with an invalid target state.
+
+    turn_off is exclusive. Otherwise, turn_on and temperature may combine
+    ("turn on to this temperature"), but at least one of them is required.
+    """
+    turn_off = value[ATTR_TURN_OFF]
+    turn_on = value[ATTR_TURN_ON]
+    has_temperature = value.get(ATTR_TEMPERATURE) is not None
+    if turn_off and (turn_on or has_temperature):
+        raise vol.Invalid("turn_off cannot be combined with turn_on or temperature")
+    if not turn_off and not turn_on and not has_temperature:
+        raise vol.Invalid("Specify turn_off, or turn_on and/or temperature")
     return value
 
 
@@ -57,7 +61,7 @@ SCHEDULE_TRANSITION_SCHEMA = vol.All(
             vol.Optional(ATTR_TEMPERATURE): vol.Coerce(float),
         }
     ),
-    _require_exactly_one_target_state,
+    _require_a_valid_target_state,
 )
 
 CANCEL_TRANSITION_SCHEMA = vol.Schema(

@@ -1,3 +1,5 @@
+const TRANSITIONS_SENSOR = "sensor.pending_transitions";
+
 class ClimateFlowAcCard extends HTMLElement {
   setConfig(config) {
     if (!config.entity || !config.entity.startsWith("climate.")) {
@@ -20,6 +22,10 @@ class ClimateFlowAcCard extends HTMLElement {
 
   getCardSize() {
     return 3;
+  }
+
+  disconnectedCallback() {
+    this._stopTransitionTicking();
   }
 
   _isOff(state) {
@@ -74,6 +80,13 @@ class ClimateFlowAcCard extends HTMLElement {
     const powerActionId = "power";
     const decreaseActionId = `temperature:-${step}`;
     const increaseActionId = `temperature:${step}`;
+    const pendingTransition = this._hass.states[TRANSITIONS_SENSOR]?.attributes?.[this._config.entity];
+    if (pendingTransition) {
+      this._transitionTickInterval ??= setInterval(() => this._render(), 1000);
+    } else {
+      this._stopTransitionTicking();
+    }
+    const transitionLabel = pendingTransition ? "Edit or cancel the timed transition" : "Set a timed transition";
 
     this.innerHTML = `
       <style>
@@ -81,10 +94,27 @@ class ClimateFlowAcCard extends HTMLElement {
         ha-card { box-sizing: border-box; min-width: 0; padding: clamp(8px, 4vw, 16px); }
         .header, .temperature, .swing { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
         .header { margin-bottom: 20px; font-size: 1.1em; font-weight: 500; }
-        .header-left { align-items: center; display: flex; gap: 8px; }
-        .title { display: grid; gap: 2px; }
+        .header-left, .header-right { align-items: center; display: flex; gap: 8px; }
+        .title { display: grid; gap: 2px; min-width: 0; }
         .more-info { font-size: 1.3em; line-height: 1; min-height: 36px; min-width: 36px; padding: 0; }
         .mode-state, .swing-state { color: var(--secondary-text-color); font-size: 0.8em; font-weight: 400; }
+        .mode-state.timed { color: var(--warning-color, #ff9800); font-weight: 500; font-variant-numeric: tabular-nums; }
+        .timer.armed { border-color: var(--warning-color, #ff9800); border-style: dashed; color: var(--warning-color, #ff9800); }
+        .transition-panel { background: var(--secondary-background-color); border-radius: 10px; margin-bottom: 18px; padding: 12px; }
+        .transition-panel-title { align-items: center; color: var(--warning-color, #ff9800); display: flex; font-size: 0.78em; font-weight: 700; gap: 6px; letter-spacing: 0.02em; margin-bottom: 10px; text-transform: uppercase; }
+        .transition-field-label { color: var(--secondary-text-color); font-size: 0.78em; font-weight: 600; margin: 0 0 6px; }
+        .transition-chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+        .transition-chip { aspect-ratio: auto; background: var(--card-background-color, var(--ha-card-background)); border: 1.5px solid var(--divider-color); border-radius: 999px; color: var(--primary-text-color); cursor: pointer; font-size: 0.8em; font-weight: 600; min-height: 0; min-width: 0; padding: 6px 12px; }
+        .transition-chip.selected { background: var(--warning-color, #ff9800); border-color: var(--warning-color, #ff9800); color: #fff; }
+        .transition-stepper { align-items: center; display: flex; gap: 10px; justify-content: center; margin-bottom: 12px; }
+        .transition-stepper button { min-height: 32px; min-width: 32px; }
+        .transition-stepper-value { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 5em; text-align: center; }
+        .transition-segmented { background: var(--card-background-color, var(--ha-card-background)); border-radius: 999px; display: flex; flex-wrap: wrap; gap: 2px; margin-bottom: 12px; padding: 3px; }
+        .transition-segmented button { aspect-ratio: auto; background: transparent; border: 0; border-radius: 999px; color: var(--primary-text-color); cursor: pointer; flex: 1; font-size: 0.8em; font-weight: 600; min-height: 0; min-width: 0; padding: 7px 0; }
+        .transition-segmented button.selected { background: var(--warning-color, #ff9800); color: #fff; }
+        .transition-panel-footer { align-items: center; display: flex; gap: 10px; justify-content: flex-end; }
+        .transition-text-button { aspect-ratio: auto; background: none; border: 0; color: var(--secondary-text-color); cursor: pointer; font-size: 0.8em; font-weight: 600; min-height: 0; min-width: 0; padding: 8px 6px; }
+        .transition-start-button { aspect-ratio: auto; background: var(--warning-color, #ff9800); border: 0; border-radius: 999px; color: #fff; cursor: pointer; font-size: 0.85em; font-weight: 700; min-height: 0; min-width: 0; padding: 9px 16px; }
         .temperature-section { position: relative; }
         .temperature { display: grid; gap: 8px; grid-template-columns: 40px minmax(4.5em, auto) 40px; justify-content: center; margin: 0 auto 4px; max-width: 200px; width: 100%; }
         .temperature-value { min-width: 4.5em; text-align: center; font-size: 2em; font-weight: 400; }
@@ -97,7 +127,7 @@ class ClimateFlowAcCard extends HTMLElement {
         .current-temperature { color: var(--secondary-text-color); font-size: 0.9em; margin-bottom: 18px; text-align: center; }
         .swing { justify-content: center; }
         .swing-buttons { display: flex; gap: 12px; }
-        button { border: 3px solid transparent; border-radius: 50%; background: var(--secondary-background-color); color: var(--primary-text-color); cursor: pointer; font: inherit; min-width: 44px; min-height: 44px; padding: 8px; position: relative; }
+        button { aspect-ratio: 1 / 1; border: 3px solid transparent; border-radius: 50%; background: var(--secondary-background-color); color: var(--primary-text-color); cursor: pointer; flex-shrink: 0; font: inherit; min-width: 44px; min-height: 44px; padding: 8px; position: relative; }
         button:active:not(:disabled), button.selected { background: var(--primary-color); color: var(--text-primary-color); }
         button:disabled { cursor: default; opacity: 0.45; }
         .button-label { align-items: center; display: inline-flex; height: 100%; justify-content: center; width: 100%; }
@@ -117,11 +147,15 @@ class ClimateFlowAcCard extends HTMLElement {
             <button class="more-info" data-action="more-info" aria-label="Open climate controls" title="Open climate controls">⋮</button>
             <div class="title">
               <span>${this._escape(name)}</span>
-              <span class="mode-state">${this._escape(this._formatState(mode))}</span>
+              <span class="mode-state ${pendingTransition ? "timed" : ""}">${pendingTransition ? this._escape(this._transitionCountdownLabel(pendingTransition)) : this._escape(this._formatState(mode))}</span>
             </div>
           </div>
-          <button class="power ${powerClass}" data-action="power" aria-label="${powerLabel}" title="${powerLabel}" ${isUnavailable || this._isActionPending(powerActionId) ? "disabled" : ""}>${this._buttonContent("⏻", this._isActionPending(powerActionId))}</button>
+          <div class="header-right">
+            <button class="timer ${pendingTransition ? "armed" : ""}" data-action="toggle-transition-panel" aria-label="${transitionLabel}" title="${transitionLabel}">${this._buttonContent("⏱", false)}</button>
+            <button class="power ${powerClass}" data-action="power" aria-label="${powerLabel}" title="${powerLabel}" ${isUnavailable || this._isActionPending(powerActionId) ? "disabled" : ""}>${this._buttonContent("⏻", this._isActionPending(powerActionId))}</button>
+          </div>
         </div>
+        ${this._transitionPanelOpen ? this._transitionPanelHtml(state, pendingTransition) : ""}
         <div class="temperature-section">
           ${this._sliderOpen && canUseTemperatureSlider ? `<div class="temperature-slider-row"><input class="temperature-slider" data-action="temperature-slider" type="range" min="${minimum}" max="${maximum}" step="${step}" value="${sliderTemperature}" aria-label="Target temperature" ${this._isActionPending("temperature-slider") ? "disabled" : ""}><span class="temperature-slider-value">${sliderTemperature} ${this._escape(attributes.temperature_unit ?? "°")}</span>${this._isActionPending("temperature-slider") ? '<span class="slider-work-indicator" aria-label="Setting temperature"></span>' : ""}</div>` : ""}
           <div class="temperature">
@@ -133,9 +167,9 @@ class ClimateFlowAcCard extends HTMLElement {
         ${Number.isFinite(currentTemperature) ? `<div class="current-temperature">Current: ${currentTemperature} ${this._escape(attributes.temperature_unit ?? "°")}</div>` : ""}
         <div class="swing" aria-label="Vertical swing direction">
           <div class="swing-buttons">
-            ${this._swingButton("fixed 1", 0, "Top", selectedSwing, controlsDisabled)}
-            ${this._swingButton("fixed 3", 2, "Middle", selectedSwing, controlsDisabled)}
             ${this._swingButton("fixed 5", 4, "Bottom", selectedSwing, controlsDisabled)}
+            ${this._swingButton("fixed 3", 2, "Middle", selectedSwing, controlsDisabled)}
+            ${this._swingButton("fixed 1", 0, "Top", selectedSwing, controlsDisabled)}
           </div>
           ${otherSwingMode ? `<span class="swing-state">${this._escape(this._formatState(otherSwingMode))}</span>` : ""}
         </div>
@@ -168,6 +202,82 @@ class ClimateFlowAcCard extends HTMLElement {
     return `<svg class="swing-icon" viewBox="0 0 40 40" aria-hidden="true">${rays}</svg>`;
   }
 
+  _transitionPanelHtml(state, pendingTransition) {
+    const attributes = state.attributes;
+    const minimum = Number(attributes.min_temp) || 16;
+    const maximum = Number(attributes.max_temp) || 30;
+    const minutes = this._transitionMinutes ?? 30;
+    const target = this._transitionTarget ?? "off";
+    const temperature = Number.isFinite(this._transitionTemperature)
+      ? this._transitionTemperature
+      : Math.round(Number(attributes.temperature)) || minimum;
+    const goal = target === "temp" ? `${temperature}°` : target === "on" ? "On" : "Off";
+    const quickOptions = [15, 30, 60, 120];
+    return `
+      <div class="transition-panel">
+        <div class="transition-panel-title">⏱ Timed transition</div>
+        <p class="transition-field-label">In</p>
+        <div class="transition-chip-row">
+          ${quickOptions.map((value) => `<button class="transition-chip ${minutes === value ? "selected" : ""}" data-action="transition-minutes" data-minutes="${value}">${this._formatMinutes(value)}</button>`).join("")}
+        </div>
+        <div class="transition-stepper">
+          <button data-action="transition-minutes-step" data-step="-5" aria-label="Decrease delay">−</button>
+          <span class="transition-stepper-value">${this._formatMinutes(minutes)}</span>
+          <button data-action="transition-minutes-step" data-step="5" aria-label="Increase delay">+</button>
+        </div>
+        <p class="transition-field-label">Then</p>
+        <div class="transition-segmented">
+          <button class="${target === "off" ? "selected" : ""}" data-action="transition-target" data-target="off">Turn off</button>
+          <button class="${target === "on" ? "selected" : ""}" data-action="transition-target" data-target="on">Turn on</button>
+          <button class="${target === "temp" ? "selected" : ""}" data-action="transition-target" data-target="temp">Set temp</button>
+        </div>
+        ${target === "temp" ? `<div class="transition-stepper">
+          <button data-action="transition-temperature-step" data-step="-1" aria-label="Decrease temperature">−</button>
+          <span class="transition-stepper-value">${temperature} ${this._escape(attributes.temperature_unit ?? "°")}</span>
+          <button data-action="transition-temperature-step" data-step="1" aria-label="Increase temperature">+</button>
+        </div>` : ""}
+        <div class="transition-panel-footer">
+          ${pendingTransition ? `<button class="transition-text-button" data-action="transition-cancel">Cancel transition</button>` : `<button class="transition-text-button" data-action="transition-dismiss">Dismiss</button>`}
+          <button class="transition-start-button" data-action="transition-start">${pendingTransition ? "Update" : "Start"} · ${goal} in ${this._formatMinutes(minutes)}</button>
+        </div>
+      </div>`;
+  }
+
+  _transitionCountdownLabel(pendingTransition) {
+    const remainingSeconds = Math.max(
+      0,
+      Math.round((new Date(pendingTransition.fires_at).getTime() - Date.now()) / 1000),
+    );
+    const goal = pendingTransition.turn_off
+      ? "Off"
+      : pendingTransition.turn_on
+        ? "On"
+        : `${pendingTransition.temperature_celsius}°`;
+    return `${goal} in ${this._formatCountdown(remainingSeconds)}`;
+  }
+
+  _formatCountdown(totalSeconds) {
+    const pad = (value) => String(value).padStart(2, "0");
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`;
+  }
+
+  _formatMinutes(minutes) {
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    return rest ? `${hours}h ${rest}m` : `${hours}h`;
+  }
+
+  _stopTransitionTicking() {
+    if (this._transitionTickInterval) {
+      clearInterval(this._transitionTickInterval);
+      this._transitionTickInterval = undefined;
+    }
+  }
+
   async _handleAction(button, state) {
     const action = button.dataset.action;
     if (action === "more-info") {
@@ -186,6 +296,83 @@ class ClimateFlowAcCard extends HTMLElement {
       this._sliderOpen = !this._sliderOpen;
       this._sliderTemperature = Number(state.attributes.temperature);
       this._render();
+      return;
+    }
+    if (action === "toggle-transition-panel") {
+      this._transitionPanelOpen = !this._transitionPanelOpen;
+      if (this._transitionPanelOpen) {
+        const pending = this._hass.states[TRANSITIONS_SENSOR]?.attributes?.[this._config.entity];
+        this._transitionTarget = pending
+          ? pending.turn_off
+            ? "off"
+            : pending.turn_on
+              ? "on"
+              : "temp"
+          : "off";
+        this._transitionTemperature = pending?.temperature_celsius ?? Number(state.attributes.temperature);
+        this._transitionMinutes = pending
+          ? Math.max(5, Math.round((new Date(pending.fires_at).getTime() - Date.now()) / 60000 / 5) * 5)
+          : 30;
+      }
+      this._render();
+      return;
+    }
+    if (action === "transition-minutes") {
+      this._transitionMinutes = Number(button.dataset.minutes);
+      this._render();
+      return;
+    }
+    if (action === "transition-minutes-step") {
+      this._transitionMinutes = Math.min(360, Math.max(5, (this._transitionMinutes ?? 30) + Number(button.dataset.step)));
+      this._render();
+      return;
+    }
+    if (action === "transition-target") {
+      this._transitionTarget = button.dataset.target;
+      this._render();
+      return;
+    }
+    if (action === "transition-temperature-step") {
+      const minimum = Number(state.attributes.min_temp) || 16;
+      const maximum = Number(state.attributes.max_temp) || 30;
+      const current = Number.isFinite(this._transitionTemperature)
+        ? this._transitionTemperature
+        : Number(state.attributes.temperature) || minimum;
+      this._transitionTemperature = Math.min(maximum, Math.max(minimum, current + Number(button.dataset.step)));
+      this._render();
+      return;
+    }
+    if (action === "transition-dismiss") {
+      this._transitionPanelOpen = false;
+      this._render();
+      return;
+    }
+    if (action === "transition-start") {
+      this._transitionPanelOpen = false;
+      const data = { entity_id: this._config.entity, delay_seconds: (this._transitionMinutes ?? 30) * 60 };
+      if (this._transitionTarget === "temp") {
+        data.temperature = this._transitionTemperature;
+      } else if (this._transitionTarget === "on") {
+        data.turn_on = true;
+      } else {
+        data.turn_off = true;
+      }
+      this._render();
+      try {
+        await this._hass.callService("climate_flow", "schedule_transition", data);
+      } catch {
+        // Home Assistant surfaces the error toast; nothing further to do here.
+      }
+      return;
+    }
+    if (action === "transition-cancel") {
+      this._transitionPanelOpen = false;
+      this._render();
+      try {
+        await this._hass.callService("climate_flow", "cancel_transition", { entity_id: this._config.entity });
+      } catch {
+        // Home Assistant surfaces the error toast; nothing further to do here.
+      }
       return;
     }
     const actionId = this._actionId(button);

@@ -1,14 +1,29 @@
 """Tests for Climate Flow setup and unloading."""
 
 import json
+import shutil
+import subprocess
+from datetime import timedelta
 from pathlib import Path
 
+import pytest
+from homeassistant.components.climate.const import ATTR_HVAC_MODES
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import SERVICE_TURN_OFF
 from homeassistant.core import HomeAssistant
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from homeassistant.helpers.storage import Store
+from homeassistant.util import dt as dt_util
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_mock_service,
+)
 
 from custom_components.climate_flow import CONFIG_SCHEMA
 from custom_components.climate_flow.const import DOMAIN
+from custom_components.climate_flow.transition_runtime import (
+    STORAGE_KEY,
+    STORAGE_VERSION,
+)
 
 
 def test_ac_card_asset_declares_the_supported_controls() -> None:
@@ -57,6 +72,45 @@ def test_ac_card_asset_declares_the_supported_controls() -> None:
     assert "temperature-slider" in card
     assert "temperature-section" in card
     assert "bottom: calc(100% + 4px)" in card
+    assert "sensor.pending_transitions" in card
+    assert '"schedule_transition"' in card
+    assert '"cancel_transition"' in card
+    assert "toggle-transition-panel" in card
+    assert "transition-panel" in card
+    assert 'data-target="off"' in card
+    assert 'data-target="on"' in card
+    assert 'data-target="temp"' in card
+    assert "delay_seconds" in card
+    assert "_formatCountdown" in card
+    assert "_transitionTickInterval" in card
+    assert "disconnectedCallback" in card
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js is not installed")
+def test_ac_card_asset_is_syntactically_valid_javascript() -> None:
+    """Test the distributed AC card parses without a syntax error.
+
+    A string-content assertion cannot catch a broken script (for example,
+    mixing `??` and `||` in one expression, which V8 rejects). Browsers load
+    this asset as a module and fail the whole card silently, so verify it
+    parses wherever Node happens to be available.
+    """
+    card_path = (
+        Path(__file__).parents[1]
+        / "custom_components"
+        / DOMAIN
+        / "www"
+        / "climate-flow-ac-card.js"
+    )
+
+    result = subprocess.run(
+        ["node", "--check", str(card_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
 
 
 def test_config_entry_only_schema_accepts_empty_configuration() -> None:
@@ -104,3 +158,45 @@ async def test_setup_and_unload_entry(hass: HomeAssistant) -> None:
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.NOT_LOADED
+
+
+async def test_setup_recovers_a_pending_transition_from_storage(
+    hass: HomeAssistant,
+) -> None:
+    """Test a persisted transition resumes when the config entry loads."""
+    hass.states.async_set("climate.bedroom", "cool", {ATTR_HVAC_MODES: ["off", "cool"]})
+    async_mock_service(hass, "climate", SERVICE_TURN_OFF)
+    future = (dt_util.utcnow() + timedelta(seconds=30)).isoformat()
+    store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
+    await store.async_save({"climate.bedroom": {"fires_at": future, "turn_off": True}})
+    entry = MockConfigEntry(domain=DOMAIN, title="Climate Flow", data={})
+    entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert entry.runtime_data.transitions.pending("climate.bedroom") is not None
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
+
+async def test_unload_keeps_a_pending_transition_for_the_next_load(
+    hass: HomeAssistant,
+) -> None:
+    """Test unloading the entry does not lose an unfired pending transition."""
+    hass.states.async_set("climate.bedroom", "cool", {ATTR_HVAC_MODES: ["off", "cool"]})
+    async_mock_service(hass, "climate", SERVICE_TURN_OFF)
+    entry = MockConfigEntry(domain=DOMAIN, title="Climate Flow", data={})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await entry.runtime_data.transitions.async_schedule(
+        "climate.bedroom", delay_seconds=30, turn_off=True
+    )
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
+    store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
+    assert "climate.bedroom" in await store.async_load()
+    await store.async_save({})

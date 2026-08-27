@@ -81,7 +81,8 @@
         "invalid_flow": {"message": "This saved flow cannot be executed."},
         "no_flow_targets": {"message": "Select one or more Climate Flow switches."},
         "target_owned": {"message": "{target} is already controlled by another active flow."},
-        "unknown_flow": {"message": "The selected saved flow is no longer available."}
+        "unknown_flow": {"message": "The selected saved flow is no longer available."},
+        "no_config_entry": {"message": "Set up Climate Flow before scheduling a transition."}
     },
     "services": {
         "start": {
@@ -91,6 +92,42 @@
         "cancel": {
             "name": "Cancel flow",
             "description": "Cancel the selected active Climate Flow definitions without restoring climate state."
+        },
+        "schedule_transition": {
+            "name": "Schedule transition",
+            "description": "Schedule a one-time future state change for a climate entity.",
+            "fields": {
+                "entity_id": {
+                    "name": "Climate entity",
+                    "description": "The climate entity to transition."
+                },
+                "delay_seconds": {
+                    "name": "Delay",
+                    "description": "How long to wait before applying the transition, in seconds."
+                },
+                "turn_off": {
+                    "name": "Turn off",
+                    "description": "Turn the entity off when the transition fires."
+                },
+                "turn_on": {
+                    "name": "Turn on",
+                    "description": "Turn the entity on when the transition fires."
+                },
+                "temperature": {
+                    "name": "Temperature",
+                    "description": "The target temperature to set when the transition fires."
+                }
+            }
+        },
+        "cancel_transition": {
+            "name": "Cancel transition",
+            "description": "Cancel a climate entity's pending transition, if any.",
+            "fields": {
+                "entity_id": {
+                    "name": "Climate entity",
+                    "description": "The climate entity whose pending transition should be cancelled."
+                }
+            }
         }
     },
     "title": "Climate Flow"

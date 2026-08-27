@@ -22,6 +22,7 @@ from pytest_homeassistant_custom_component.common import async_mock_service
 
 from custom_components.climate_flow.flow import ClimateState, FlowStage, SavedFlow
 from custom_components.climate_flow.runtime import ClimateFlowRuntime, FlowDefinition
+from custom_components.climate_flow.transition_runtime import TransitionRuntime
 
 
 def _add_climate(hass: HomeAssistant, entity_id: str) -> None:
@@ -195,3 +196,10 @@ async def test_runtime_converts_saved_celsius_temperature_to_home_assistant_unit
 
     assert temperature_calls[0].data[ATTR_TEMPERATURE] == 71.6
     await runtime.async_cancel("flow")
+
+
+def test_runtime_composes_a_transition_runtime(hass: HomeAssistant) -> None:
+    """Test each Climate Flow runtime owns a pending-transition manager."""
+    runtime = ClimateFlowRuntime(hass, "entry")
+
+    assert isinstance(runtime.transitions, TransitionRuntime)

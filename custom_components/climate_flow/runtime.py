@@ -39,6 +39,7 @@ from .const import DOMAIN, FLOW_SUBENTRY_TYPE
 from .execution_engine import ActiveFlowRun, FlowConflictError, FlowExecutionEngine
 from .flow import ClimateState, SavedFlow
 from .flow_capabilities import temperature_from_celsius
+from .transition_runtime import TransitionRuntime
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -64,6 +65,7 @@ class ClimateFlowRuntime:
         self.hass = hass
         self.entry_id = entry_id
         self.engine = FlowExecutionEngine()
+        self.transitions = TransitionRuntime(hass)
         self._definitions: dict[str, FlowDefinition] = {}
         self._timer_unsubs: dict[str, Callable[[], None]] = {}
         self._target_unsubs: dict[str, Callable[[], None]] = {}

@@ -9,3 +9,39 @@ cancel:
     entity:
       domain: switch
       integration: climate_flow
+
+schedule_transition:
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          domain: climate
+    delay_seconds:
+      required: true
+      selector:
+        number:
+          min: 1
+          unit_of_measurement: seconds
+          mode: box
+    turn_off:
+      selector:
+        boolean:
+    turn_on:
+      selector:
+        boolean:
+    temperature:
+      selector:
+        number:
+          min: 0
+          max: 40
+          step: 0.5
+          mode: box
+
+cancel_transition:
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          domain: climate

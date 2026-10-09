@@ -67,11 +67,20 @@ def test_ac_card_asset_declares_the_supported_controls() -> None:
     assert "work-indicator" in card
     assert "@keyframes rotate-work-indicator" in card
     assert "await this._hass.callService" in card
-    assert 'type="range"' in card
-    assert "toggle-temperature-slider" in card
-    assert "temperature-slider" in card
+    assert "toggle-temperature-picker" in card
+    assert "temperature-picker-option" in card
+    assert "temperature-picker-select" in card
+    assert "_temperatureOptions" in card
     assert "temperature-section" in card
     assert "bottom: calc(100% + 4px)" in card
+    assert "_debouncedTemperature" in card
+    assert "_scheduleDebouncedTemperature" in card
+    assert "temperature-work-indicator" in card
+    assert 'class="button-icon"' in card
+    assert "_clockIcon" in card
+    assert "_powerIcon" in card
+    assert "_minusIcon" in card
+    assert "_plusIcon" in card
     assert "sensor.pending_transitions" in card
     assert '"schedule_transition"' in card
     assert '"cancel_transition"' in card

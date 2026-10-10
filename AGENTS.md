@@ -14,16 +14,18 @@ Integration location:
 
 ## Repository boundaries
 
-- Work only inside this repository.
-- Never access, inspect, mount, or modify a live Home Assistant configuration.
+- Work only inside this repository, except when the user explicitly asks to
+  deploy to a live Home Assistant configuration they control.
 - Never request or store Home Assistant credentials, tokens, secrets,
   backups, databases, or `.storage` contents.
-- Never deploy automatically to a Home Assistant instance.
+- Only deploy to a live Home Assistant instance when the user explicitly
+  requests it in that conversation; never do it proactively or as a default
+  part of finishing a task.
 - Never hardcode personal entity IDs, IP addresses, credentials, or
-  manufacturer-specific configuration.
+  manufacturer-specific configuration in files committed to this repository.
 - Commit completed work with a meaningful, scoped commit message.
-- Do not push commits, publish releases, deploy, or run destructive Git
-  commands unless explicitly requested.
+- Do not push commits, publish releases, or run destructive Git commands
+  unless explicitly requested.
 - Ask before adding a runtime dependency.
 
 ## Sources of truth

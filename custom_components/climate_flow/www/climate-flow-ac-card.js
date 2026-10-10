@@ -91,7 +91,7 @@ class ClimateFlowAcCard extends HTMLElement {
     this.innerHTML = `
       <style>
         :host { display: block; min-width: 0; }
-        ha-card { box-sizing: border-box; min-width: 0; padding: clamp(8px, 4vw, 16px); }
+        ha-card { box-sizing: border-box; min-width: 0; padding: clamp(8px, 4vw, 16px); position: relative; }
         .header, .temperature, .swing { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
         .header { margin-bottom: 20px; font-size: 1.1em; font-weight: 500; }
         .header-left, .header-right { align-items: center; display: flex; gap: 8px; }
@@ -116,23 +116,24 @@ class ClimateFlowAcCard extends HTMLElement {
         .transition-panel-footer { align-items: center; display: flex; gap: 10px; justify-content: flex-end; }
         .transition-text-button { aspect-ratio: auto; background: none; border: 0; color: var(--secondary-text-color); cursor: pointer; font-size: 0.8em; font-weight: 600; min-height: 0; min-width: 0; padding: 8px 6px; }
         .transition-start-button { aspect-ratio: auto; background: var(--warning-color, #ff9800); border: 0; border-radius: 999px; color: #fff; cursor: pointer; font-size: 0.85em; font-weight: 700; min-height: 0; min-width: 0; padding: 9px 16px; }
-        .temperature-section { position: relative; }
+        .temperature-section { position: static; }
         .temperature { display: grid; gap: 8px; grid-template-columns: 40px minmax(4.5em, auto) 40px; justify-content: center; margin: 0 auto 4px; max-width: 200px; width: 100%; }
         .temperature-value { min-width: 4.5em; text-align: center; font-size: 2em; font-weight: 400; }
         .temperature-trigger { background: transparent; border: 0; border-radius: 4px; min-height: 0; min-width: 0; padding: 0; }
         .temperature-trigger:active:not(:disabled) { background: var(--secondary-background-color); color: var(--primary-text-color); }
         .temperature-value-wrap { align-items: center; display: flex; gap: 6px; justify-content: center; min-width: 0; }
         .temperature-work-indicator { animation: rotate-work-indicator 0.8s linear infinite; border: 2px solid transparent; border-radius: 50%; border-right-color: var(--primary-color); border-top-color: var(--primary-color); box-shadow: 0 0 6px var(--primary-color); flex-shrink: 0; height: 14px; width: 14px; }
-        .temperature-picker-row { background: var(--ha-card-background, var(--card-background-color)); border-radius: 10px; bottom: calc(100% + 4px); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35); box-sizing: border-box; left: 50%; max-width: 280px; padding: 10px; position: absolute; transform: translateX(-50%); z-index: 1; }
-        .temperature-picker-grid { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; max-height: 190px; overflow-y: auto; }
-        .temperature-picker-option { font-size: 0.8em; font-weight: 600; min-height: 36px; min-width: 36px; }
+        .temperature-picker-row { background: var(--ha-card-background, var(--card-background-color)); border-radius: 12px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4); box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; height: 90%; left: 50%; padding: 10px; position: absolute; top: 50%; transform: translate(-50%, -50%); width: 80%; z-index: 2; }
+        .temperature-picker-close { align-self: flex-end; aspect-ratio: auto; background: transparent; border: 3px solid transparent; color: var(--secondary-text-color); cursor: pointer; flex-shrink: 0; font-size: 1em; line-height: 1; min-height: 30px; min-width: 30px; padding: 0; }
+        .temperature-picker-grid { display: grid; flex: 1; gap: 6px; grid-auto-rows: 1fr; min-height: 0; width: 100%; }
+        .temperature-picker-option { aspect-ratio: auto; font-size: 0.8em; font-weight: 600; height: 100%; min-height: 0; min-width: 0; padding: 0; width: 100%; }
         .current-temperature { color: var(--secondary-text-color); font-size: 0.9em; margin-bottom: 18px; text-align: center; }
         .swing { justify-content: center; }
         .swing-buttons { display: flex; gap: 12px; }
-        button { aspect-ratio: 1 / 1; border: 3px solid transparent; border-radius: 50%; background: var(--secondary-background-color); color: var(--primary-text-color); cursor: pointer; flex-shrink: 0; font: inherit; min-width: 44px; min-height: 44px; padding: 8px; position: relative; }
+        button { align-items: center; aspect-ratio: 1 / 1; border: 3px solid transparent; border-radius: 50%; background: var(--secondary-background-color); box-sizing: border-box; color: var(--primary-text-color); cursor: pointer; display: flex; flex-shrink: 0; font: inherit; justify-content: center; min-width: 44px; min-height: 44px; padding: 8px; position: relative; }
         button:active:not(:disabled), button.selected { background: var(--primary-color); color: var(--text-primary-color); }
         button:disabled { cursor: default; opacity: 0.45; }
-        .button-label { align-items: center; display: inline-flex; height: 100%; justify-content: center; width: 100%; }
+        .button-label { align-items: center; display: inline-flex; justify-content: center; }
         .work-indicator { animation: rotate-work-indicator 0.8s linear infinite; border: 3px solid transparent; border-radius: inherit; border-right-color: var(--primary-color); border-top-color: var(--primary-color); box-shadow: 0 0 8px var(--primary-color); inset: -3px; pointer-events: none; position: absolute; }
         @keyframes rotate-work-indicator { to { transform: rotate(360deg); } }
         .swing-icon { display: block; height: 28px; margin: auto; width: 28px; }
@@ -189,12 +190,21 @@ class ClimateFlowAcCard extends HTMLElement {
   _temperaturePickerHtml(minimum, maximum, step, selected) {
     const pending = this._isActionPending("temperature-picker");
     const options = this._temperatureOptions(minimum, maximum, step);
+    const columns = this._temperaturePickerColumns(options.length);
     return `
       <div class="temperature-picker-row">
-        <div class="temperature-picker-grid">
+        <button class="temperature-picker-close" data-action="temperature-picker-close" aria-label="Close temperature picker" title="Close">✕</button>
+        <div class="temperature-picker-grid" style="grid-template-columns: repeat(${columns}, 1fr);">
           ${options.map((value) => `<button class="temperature-picker-option ${value === selected ? "selected" : ""}" data-action="temperature-picker-select" data-temperature="${value}" aria-label="Set temperature to ${value}" ${pending ? "disabled" : ""}>${this._buttonContent(String(value), pending && value === this._pendingPickerValue)}</button>`).join("")}
         </div>
       </div>`;
+  }
+
+  _temperaturePickerColumns(count) {
+    if (count <= 1) return 1;
+    // The picker area tends to be noticeably wider than it is tall, so bias
+    // toward more columns than a plain square grid would pick.
+    return Math.max(1, Math.round(Math.sqrt(count * 1.4)));
   }
 
   _temperatureOptions(minimum, maximum, step) {
@@ -342,6 +352,11 @@ class ClimateFlowAcCard extends HTMLElement {
     }
     if (action === "temperature-picker-select") {
       await this._asyncSetPickerTemperature(Number(button.dataset.temperature), state);
+      return;
+    }
+    if (action === "temperature-picker-close") {
+      this._pickerOpen = false;
+      this._render();
       return;
     }
     if (action === "temperature") {

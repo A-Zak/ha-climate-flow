@@ -72,7 +72,9 @@ def test_ac_card_asset_declares_the_supported_controls() -> None:
     assert "temperature-picker-select" in card
     assert "_temperatureOptions" in card
     assert "temperature-section" in card
-    assert "bottom: calc(100% + 4px)" in card
+    assert "transform: translate(-50%, -50%)" in card
+    assert "temperature-picker-close" in card
+    assert "_temperaturePickerColumns" in card
     assert "_debouncedTemperature" in card
     assert "_scheduleDebouncedTemperature" in card
     assert "temperature-work-indicator" in card

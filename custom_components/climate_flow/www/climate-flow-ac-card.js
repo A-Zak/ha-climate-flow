@@ -123,9 +123,9 @@ class ClimateFlowAcCard extends HTMLElement {
         .temperature-trigger:active:not(:disabled) { background: var(--secondary-background-color); color: var(--primary-text-color); }
         .temperature-value-wrap { align-items: center; display: flex; gap: 6px; justify-content: center; min-width: 0; }
         .temperature-work-indicator { animation: rotate-work-indicator 0.8s linear infinite; border: 2px solid transparent; border-radius: 50%; border-right-color: var(--primary-color); border-top-color: var(--primary-color); box-shadow: 0 0 6px var(--primary-color); flex-shrink: 0; height: 14px; width: 14px; }
-        .temperature-picker-row { background: var(--ha-card-background, var(--card-background-color)); border-radius: 12px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4); box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; height: 90%; left: 50%; padding: 10px; position: absolute; top: 50%; transform: translate(-50%, -50%); width: 80%; z-index: 2; }
-        .temperature-picker-close { align-self: flex-end; aspect-ratio: auto; background: transparent; border: 3px solid transparent; color: var(--secondary-text-color); cursor: pointer; flex-shrink: 0; font-size: 1em; line-height: 1; min-height: 30px; min-width: 30px; padding: 0; }
-        .temperature-picker-grid { display: grid; flex: 1; gap: 6px; grid-auto-rows: 1fr; min-height: 0; width: 100%; }
+        .temperature-picker-row { background: var(--ha-card-background, var(--card-background-color)); border-radius: 12px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4); box-sizing: border-box; height: 90%; left: 50%; padding: 10px; position: absolute; top: 50%; transform: translate(-50%, -50%); width: 80%; z-index: 2; }
+        .temperature-picker-close { aspect-ratio: 1 / 1; background: var(--secondary-background-color); border: 2px solid var(--ha-card-background, var(--card-background-color)); border-radius: 50%; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); color: var(--primary-text-color); cursor: pointer; font-size: 0.85em; line-height: 1; min-height: 30px; min-width: 30px; padding: 0; position: absolute; right: -10px; top: -10px; z-index: 3; }
+        .temperature-picker-grid { display: grid; gap: 6px; grid-auto-rows: 1fr; height: 100%; width: 100%; }
         .temperature-picker-option { aspect-ratio: auto; font-size: 0.8em; font-weight: 600; height: 100%; min-height: 0; min-width: 0; padding: 0; width: 100%; }
         .current-temperature { color: var(--secondary-text-color); font-size: 0.9em; margin-bottom: 18px; text-align: center; }
         .swing { justify-content: center; }
@@ -191,11 +191,19 @@ class ClimateFlowAcCard extends HTMLElement {
     const pending = this._isActionPending("temperature-picker");
     const options = this._temperatureOptions(minimum, maximum, step);
     const columns = this._temperaturePickerColumns(options.length);
+    const remainder = options.length % columns;
+    const lastRowStart = options.length - remainder;
+    const centerOffset = remainder > 0 ? Math.floor((columns - remainder) / 2) : 0;
     return `
       <div class="temperature-picker-row">
         <button class="temperature-picker-close" data-action="temperature-picker-close" aria-label="Close temperature picker" title="Close">✕</button>
         <div class="temperature-picker-grid" style="grid-template-columns: repeat(${columns}, 1fr);">
-          ${options.map((value) => `<button class="temperature-picker-option ${value === selected ? "selected" : ""}" data-action="temperature-picker-select" data-temperature="${value}" aria-label="Set temperature to ${value}" ${pending ? "disabled" : ""}>${this._buttonContent(String(value), pending && value === this._pendingPickerValue)}</button>`).join("")}
+          ${options.map((value, index) => {
+            const inLastRow = remainder > 0 && index >= lastRowStart;
+            const column = inLastRow ? centerOffset + (index - lastRowStart) + 1 : null;
+            const columnStyle = column ? ` style="grid-column: ${column} / span 1;"` : "";
+            return `<button class="temperature-picker-option ${value === selected ? "selected" : ""}" data-action="temperature-picker-select" data-temperature="${value}" aria-label="Set temperature to ${value}" ${pending ? "disabled" : ""}${columnStyle}>${this._buttonContent(String(value), pending && value === this._pendingPickerValue)}</button>`;
+          }).join("")}
         </div>
       </div>`;
   }

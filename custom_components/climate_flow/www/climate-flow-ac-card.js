@@ -1,5 +1,6 @@
 const TRANSITIONS_SENSOR = "sensor.pending_transitions";
 const TEMPERATURE_DEBOUNCE_MS = 500;
+const TEMPERATURE_SYNC_TIMEOUT_MS = 4000;
 
 class ClimateFlowAcCard extends HTMLElement {
   setConfig(config) {
@@ -18,6 +19,7 @@ class ClimateFlowAcCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
+    this._syncDebouncedTemperature();
     this._render();
   }
 
@@ -28,6 +30,20 @@ class ClimateFlowAcCard extends HTMLElement {
   disconnectedCallback() {
     this._stopTransitionTicking();
     clearTimeout(this._debounceTimer);
+    clearTimeout(this._debouncedSyncTimeout);
+  }
+
+  _syncDebouncedTemperature() {
+    // Once the real entity state catches up to what we optimistically
+    // committed, drop the optimistic value so the real state takes over
+    // seamlessly (same number either way, no visible change).
+    if (!Number.isFinite(this._debouncedTemperature)) return;
+    const state = this._hass.states[this._config?.entity];
+    const real = Number(state?.attributes?.temperature);
+    if (Number.isFinite(real) && Math.abs(real - this._debouncedTemperature) < 0.01) {
+      this._debouncedTemperature = undefined;
+      clearTimeout(this._debouncedSyncTimeout);
+    }
   }
 
   _isOff(state) {
@@ -524,10 +540,24 @@ class ClimateFlowAcCard extends HTMLElement {
         entity_id: this._config.entity,
         temperature,
       });
+      // Don't clear the optimistic value here: the service call resolving
+      // just means HA accepted it, not that the entity's state update has
+      // propagated back yet. Clearing now causes a visible flash back to
+      // the old value before the real one arrives a moment later.
+      // _syncDebouncedTemperature (called from the hass setter) clears it
+      // once the real state actually matches. This timeout is just a
+      // safety net in case that never quite happens (e.g. HA settles on a
+      // slightly different value than requested).
+      clearTimeout(this._debouncedSyncTimeout);
+      this._debouncedSyncTimeout = setTimeout(() => {
+        this._debouncedTemperature = undefined;
+        this._render();
+      }, TEMPERATURE_SYNC_TIMEOUT_MS);
     } catch {
-      // The Home Assistant frontend reports the action error; always clear feedback.
-    } finally {
+      // The service rejected the value -- drop the optimistic guess
+      // immediately so the display reverts to the real, unchanged state.
       this._debouncedTemperature = undefined;
+    } finally {
       this._finishAction(actionId);
     }
   }

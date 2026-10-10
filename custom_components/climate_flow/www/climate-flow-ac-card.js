@@ -161,7 +161,7 @@ class ClimateFlowAcCard extends HTMLElement {
         </div>
         ${this._transitionPanelOpen ? this._transitionPanelHtml(state, pendingTransition) : ""}
         <div class="temperature-section">
-          ${this._pickerOpen && canShowTemperaturePicker ? this._temperaturePickerHtml(minimum, maximum, step, effectiveTemperature) : ""}
+          ${this._pickerOpen && canShowTemperaturePicker ? this._temperaturePickerHtml(minimum, maximum, effectiveTemperature) : ""}
           <div class="temperature">
             <button data-action="temperature" data-offset="-${step}" aria-label="Decrease temperature" ${controlsDisabled} ${canDecrease ? "" : "disabled"}>${this._buttonContent(this._minusIcon(), false)}</button>
             <div class="temperature-value-wrap">
@@ -187,9 +187,9 @@ class ClimateFlowAcCard extends HTMLElement {
     });
   }
 
-  _temperaturePickerHtml(minimum, maximum, step, selected) {
+  _temperaturePickerHtml(minimum, maximum, selected) {
     const pending = this._isActionPending("temperature-picker");
-    const options = this._temperatureOptions(minimum, maximum, step);
+    const options = this._temperatureOptions(minimum, maximum);
     const columns = this._temperaturePickerColumns(options.length);
     const remainder = options.length % columns;
     const lastRowStart = options.length - remainder;
@@ -215,13 +215,17 @@ class ClimateFlowAcCard extends HTMLElement {
     return Math.max(1, Math.round(Math.sqrt(count * 1.4)));
   }
 
-  _temperatureOptions(minimum, maximum, step) {
+  _temperatureOptions(minimum, maximum) {
+    // Always whole-number steps in the picker, regardless of the entity's
+    // own target_temp_step -- a grid of e.g. half-degree options is more
+    // than anyone needs to tap through. The +/- buttons still honor the
+    // real step for fine adjustment.
     const options = [];
-    if (!Number.isFinite(minimum) || !Number.isFinite(maximum) || !Number.isFinite(step) || step <= 0) {
+    if (!Number.isFinite(minimum) || !Number.isFinite(maximum)) {
       return options;
     }
-    for (let value = minimum; value <= maximum + 1e-6; value += step) {
-      options.push(Math.round(value * 100) / 100);
+    for (let value = Math.ceil(minimum); value <= maximum + 1e-6; value += 1) {
+      options.push(Math.round(value));
     }
     return options;
   }
